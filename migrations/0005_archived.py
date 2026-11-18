@@ -17,7 +17,6 @@
 # Third-party imports
 from teatype.db.hsdb.core import HSDBMigration
 
-
 class Archived(HSDBMigration):
     def migrate(self):
         for name in ('Exercise', 'Plan'):

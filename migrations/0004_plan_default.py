@@ -18,7 +18,6 @@
 # Third-party imports
 from teatype.db.hsdb.core import HSDBMigration
 
-
 class PlanDefault(HSDBMigration):
     def migrate(self):
         try:

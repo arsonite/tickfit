@@ -30,19 +30,29 @@ const clock = (ms: number): string => {
     return hours ? `${hours}:${String(minutes).padStart(2, '0')}:${seconds}` : `${minutes}:${seconds}`;
 };
 
-/** Where the time of a set is kept: in the value (minutes) of an exercise counted in minutes, else in the seconds of a timed one */
-const timeField = (exercise?: iExercise): 'seconds' | 'value' | null => (exercise?.unit === 'minutes' ? 'value' : exercise?.timed ? 'seconds' : null);
+type tTimeUnit = 'minutes' | 'seconds';
+type tDistanceUnit = 'km' | 'meters';
 
-const timeOf = (set: Pick<iSet, 'seconds' | 'value'>, exercise?: iExercise): number => {
-    const field = timeField(exercise);
-    return field === 'value' ? Math.round((set.value ?? 0) * 60) : field === 'seconds' ? (set.seconds ?? 0) : 0;
+const timeUnit = (exercise: Pick<iExercise, 'time_unit'>): tTimeUnit => (exercise.time_unit === 'seconds' ? 'seconds' : 'minutes');
+const distanceUnit = (exercise: Pick<iExercise, 'distance_unit'>): tDistanceUnit => (exercise.distance_unit === 'meters' ? 'meters' : 'km');
+
+const rounded = (value: number): number => Math.round(value * 100) / 100;
+
+/** Time is kept in seconds and distance in km, they are shown and entered in the unit of the exercise */
+const timeShown = (seconds: number | undefined, exercise: iExercise): number => rounded((seconds ?? 0) / (timeUnit(exercise) === 'minutes' ? 60 : 1));
+const timeStored = (shown: number, exercise: iExercise): number => Math.round(shown * (timeUnit(exercise) === 'minutes' ? 60 : 1));
+const distanceShown = (km: number | undefined, exercise: iExercise): number => rounded((km ?? 0) * (distanceUnit(exercise) === 'meters' ? 1000 : 1));
+const distanceStored = (shown: number, exercise: iExercise): number => Math.round((shown / (distanceUnit(exercise) === 'meters' ? 1000 : 1)) * 1e6) / 1e6;
+
+/** The unit the stats count an exercise in: reps, else the time, else the distance */
+const mainUnit = (exercise: iExercise): 'km' | 'meters' | 'minutes' | 'reps' | 'seconds' =>
+    exercise.unit === 'reps' ? 'reps' : exercise.timed ? timeUnit(exercise) : distanceUnit(exercise);
+
+/** What a set counts in the main unit of its exercise */
+const valueOf = (set: Pick<iSet, 'distance' | 'seconds' | 'value'>, exercise: iExercise): number => {
+    const unit = mainUnit(exercise);
+    return unit === 'reps' ? (set.value ?? 0) : exercise.timed ? (set.seconds ?? 0) / (unit === 'minutes' ? 60 : 1) : (set.distance ?? 0) * (unit === 'meters' ? 1000 : 1);
 };
-
-const timeChange = (exercise: iExercise | undefined, seconds: number): Partial<iSet> =>
-    timeField(exercise) === 'value' ? { value: seconds / 60 } : timeField(exercise) === 'seconds' ? { seconds } : {};
-
-/** The unit the stats count an exercise in */
-const mainUnit = (exercise: iExercise): 'km' | 'meters' | 'minutes' | 'reps' => (exercise.unit === 'none' ? (exercise.timed ? 'minutes' : 'km') : exercise.unit);
 
 const isRunning = (set: iSet): boolean => Boolean(set.started_at) && !set.ended_at;
 const hasOpenRest = (set: iSet): boolean => Boolean(set.rest_started_at) && !set.rest_ended_at;
@@ -124,5 +134,5 @@ const weekPlan = (days: (iSession | undefined)[], plans: iPlan[], planDays: iPla
     return match?.name ?? 'Custom';
 };
 
-export { clock, familyOf, hasOpenRest, interleave, isOpen, isRunning, isTrained, mainUnit, suggestNext, timeChange, timeField, timeOf, trainedHistory, weekPlan };
+export { clock, distanceShown, distanceStored, distanceUnit, familyOf, hasOpenRest, interleave, isOpen, isRunning, isTrained, mainUnit, suggestNext, timeShown, timeStored, timeUnit, trainedHistory, valueOf, weekPlan };
 export type { iTrained };

@@ -18,7 +18,6 @@ from teatype.db.hsdb.core import HSDBMigration
 # The warm-up of a workout is made of exercises now: lines of the workout that are flagged. Existing lines are not.
 # The old text of Workout.warmup stays as it is, the app shows it until it is replaced by exercises.
 
-
 class WarmupLines(HSDBMigration):
     def migrate(self):
         try:

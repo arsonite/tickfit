@@ -19,7 +19,6 @@
 
 // Utility
 import { COLLECTIONS } from '@/sync';
-import { timeField, timeOf } from '@/tools/training';
 
 // Types
 import type { iEntry, iExercise, iRow, iSession, iSet, iSlot, iWorkout } from '@/types';
@@ -68,6 +67,38 @@ const withValidReferences = (tables: tTables): tTables => {
     }
 };
 
+/** Files from before time and distance were counted on their own: minutes and meters were the value of a set */
+const withCounts = (tables: tTables): tTables => {
+    const legacy = new Map<string, string>();
+    const exercises = (tables.exercises as iExercise[]).map((exercise) => {
+        const unit: string = exercise.unit;
+        if (unit === 'minutes') {
+            legacy.set(exercise.id, unit);
+            return { ...exercise, unit: 'none', timed: true, time_unit: 'minutes' } as iExercise;
+        }
+        if (unit === 'meters') {
+            legacy.set(exercise.id, unit);
+            return { ...exercise, unit: 'none', distanced: true, distance_unit: exercise.distanced ? 'km' : 'meters' } as iExercise;
+        }
+        return exercise.timed && !exercise.time_unit ? { ...exercise, time_unit: 'seconds' as const } : exercise;
+    });
+    if (!legacy.size) {
+        return { ...tables, exercises };
+    }
+    const lines = new Map((tables.slots as iSlot[]).map((slot) => [slot.id, slot.exercise]));
+    const entries = new Map((tables.entries as iEntry[]).map((entry) => [entry.id, entry.chosen || entry.slot]));
+    const sets = (tables.sets as iSet[]).map((set) => {
+        const unit = legacy.get(lines.get(entries.get(set.session_exercise) ?? '') ?? '');
+        if (!unit || !set.value) {
+            return set;
+        }
+        return unit === 'minutes'
+            ? { ...set, seconds: Math.round(((set.seconds ?? 0) + set.value * 60) * 1000) / 1000, value: 0 }
+            : { ...set, distance: Math.round(((set.distance ?? 0) + set.value / 1000) * 1e6) / 1e6, value: 0 };
+    });
+    return { ...tables, exercises, sets };
+};
+
 /** The tables of a file of one of the `types`, rows without an id or a required field left out. null if it is not such a file. */
 const parseTables = (json: string, types: string[], complete = false): tTables | null => {
     try {
@@ -79,7 +110,7 @@ const parseTables = (json: string, types: string[], complete = false): tTables |
             return null;
         }
         return withValidReferences(
-            Object.fromEntries(
+            withCounts(Object.fromEntries(
                 NAMES.map((name) => {
                     const rows: unknown[] = Array.isArray(data.tables[name]) ? data.tables[name] : [];
                     const required = REQUIRED[name];
@@ -89,7 +120,7 @@ const parseTables = (json: string, types: string[], complete = false): tTables |
                     });
                     return [name, valid];
                 }),
-            ),
+            )),
         );
     } catch {
         return null;
@@ -161,7 +192,7 @@ const logCsv = (tables: tTables): string => {
         exercise?.unit ?? '',
         set.value ?? 0,
         set.weight ?? 0,
-        exercise && timeField(exercise) ? timeOf(set, exercise) : '',
+        exercise?.timed ? (set.seconds ?? 0) : '',
         set.distance ?? '',
         set.started_at && set.ended_at ? Math.round((set.ended_at - set.started_at) / 1000) : '',
     ]);

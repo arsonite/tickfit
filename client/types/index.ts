@@ -17,8 +17,8 @@
 
 // The rows as the HSDB server delivers them (server/models), relations are the ids of the related rows
 
-// What the value of a set counts; 'none': only the time, the distance or the weight
-type tUnit = 'reps' | 'minutes' | 'meters' | 'none';
+// What the value of a set counts; 'none': no reps, only the time, the distance or the weight
+type tUnit = 'reps' | 'none';
 type tKind = 'strength' | 'cardio' | 'rest';
 type tStatus = 'planned' | 'done' | 'skipped';
 type tSetKind = '' | 'DS' | 'P' | 'A'; // Drop set, partial, assisted
@@ -30,10 +30,12 @@ interface iRow {
 interface iExercise extends iRow {
     archived?: boolean; // Put away, kept for what was logged with it
     category?: string; // Free text to filter by, e.g. "pull"
-    distanced?: boolean; // A set also has a distance (km)
+    distance_unit?: 'km' | 'meters'; // Distance is entered in this, it is kept in km
+    distanced?: boolean; // A set also has a distance
     image?: string;
     name: string;
     notes?: string;
+    time_unit?: 'minutes' | 'seconds'; // Time is entered in this, it is kept in seconds
     timed?: boolean; // A set also has a time
     unit: tUnit;
     weighted?: boolean;

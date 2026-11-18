@@ -166,7 +166,7 @@ const recordLabel = (exercise: iExercise, kind: tRecordKind): string => {
         return RECORD_LABEL[kind];
     }
     const unit = mainUnit(exercise);
-    return unit === 'reps' ? 'Most reps' : unit === 'minutes' ? 'Longest' : 'Furthest';
+    return unit === 'reps' ? 'Most reps' : unit === 'minutes' || unit === 'seconds' ? 'Longest' : 'Furthest';
 };
 
 const RecentFeed = ({ events, onOpen }: { events: iPREvent[]; onOpen: (id: string) => void }) => {

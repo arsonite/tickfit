@@ -78,7 +78,7 @@ const define = <L extends iRow>(api: typeof HSDBBaseAPI, name: string, defaults:
 });
 
 // A row points to rows of the collections before it, so this is also the order of saving
-const exerciseCollection = define<iExercise>(ExerciseAPI, 'exercises', { archived: false, category: '', distanced: false, image: '', name: '', notes: '', timed: false, unit: 'reps', weighted: false });
+const exerciseCollection = define<iExercise>(ExerciseAPI, 'exercises', { archived: false, category: '', distance_unit: 'km', distanced: false, image: '', name: '', notes: '', time_unit: 'minutes', timed: false, unit: 'reps', weighted: false });
 const workoutCollection = define<iWorkout>(WorkoutAPI, 'workouts', { archived: false, family: '', focus: '', kind: 'strength', name: '', notes: '', rest_seconds: 0, version: 1, warmup: '' });
 const planCollection = define<iPlan>(PlanAPI, 'plans', { active: false, archived: false, default: false, name: '', notes: '' });
 const slotCollection = define<iSlot>(

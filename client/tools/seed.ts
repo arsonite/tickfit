@@ -16,7 +16,7 @@
  */
 
 // Types
-import type { tKind, tUnit } from '@/types';
+import type { iExercise, tKind } from '@/types';
 
 // A start for the empty app: the plan of the spreadsheet this app replaces. Slots name their exercise, alternatives
 // hang below the line they replace.
@@ -56,7 +56,7 @@ const WARMUP: iSeedSlot = {
     ],
 };
 
-const EXERCISES: { name: string; unit: tUnit; weighted: boolean }[] = [
+const COUNTED: [string, 'reps' | 'minutes' | 'meters', boolean][] = [
     ['45° Leg Press', 'reps', true],
     ['Abductor Machine', 'reps', true],
     ['Adductor Machine', 'reps', true],
@@ -88,7 +88,17 @@ const EXERCISES: { name: string; unit: tUnit; weighted: boolean }[] = [
     ['Standing Calf Raises', 'reps', true],
     ['Swimming', 'meters', false],
     ['V-Grip Cable Row', 'reps', true],
-].map(([name, unit, weighted]) => ({ name, unit, weighted }) as { name: string; unit: tUnit; weighted: boolean });
+];
+
+const EXERCISES: Omit<iExercise, 'id'>[] = COUNTED.map(([name, counted, weighted]) => ({
+    name,
+    weighted,
+    ...(counted === 'minutes'
+        ? { distance_unit: 'km', time_unit: 'minutes', timed: true, unit: 'none' }
+        : counted === 'meters'
+          ? { distance_unit: 'meters', distanced: true, unit: 'none' }
+          : { unit: 'reps' }),
+})) as Omit<iExercise, 'id'>[];
 
 const upper = (name: string): iSeedWorkout => ({
     focus: 'Upper body',

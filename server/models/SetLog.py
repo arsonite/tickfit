@@ -34,5 +34,5 @@ class SetLog(HSDBModel):
     session          = HSDBRelation.ManyToOne(Session, required=True) # Same session as session_exercise, to load a day's sets in one request
     session_exercise = HSDBRelation.ManyToOne(SessionExercise, required=True)
     started_at       = HSDBAttribute(int, description='Unix time (ms) the set was started, 0 = not. Drop sets and partials are sets of their own')
-    value            = HSDBAttribute(float, description='Reps, minutes or meters, as the exercise counts')
+    value            = HSDBAttribute(float, description='Reps')
     weight           = HSDBAttribute(float, description='kg')

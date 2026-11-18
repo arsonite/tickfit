@@ -18,7 +18,6 @@ from teatype.db.hsdb.core import HSDBMigration
 # SessionExercise.chosen is a plain id now instead of a relation (a second relation to WorkoutExercise next to `slot` was
 # overwritten by it on restore). The stored id stays, a row without one chose the slot itself.
 
-
 class ChosenAttribute(HSDBMigration):
     def migrate(self):
         try:

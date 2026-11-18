@@ -32,7 +32,7 @@ import { useNow } from '@/hooks/useNow';
 // Utility
 import { shortDate, today, weekdayName } from '@/tools/dates';
 import { formatSet } from '@/tools/stats';
-import { clock, familyOf, interleave, isOpen, isRunning, mainUnit, suggestNext, timeChange, timeField, timeOf, trainedHistory } from '@/tools/training';
+import { clock, distanceShown, distanceStored, distanceUnit, familyOf, interleave, isOpen, isRunning, mainUnit, suggestNext, timeShown, timeStored, timeUnit, trainedHistory } from '@/tools/training';
 import type { iTrained } from '@/tools/training';
 
 // Types
@@ -51,7 +51,7 @@ interface iSessionViewProps {
     onBack: () => void;
 }
 
-const UNIT_LABEL = { km: 'km', meters: 'm', minutes: 'min', reps: 'reps' };
+const UNIT_LABEL = { km: 'km', meters: 'm', minutes: 'min', reps: 'reps', seconds: 's' };
 const NEXT_KIND: Record<string, tSetKind> = { '': 'DS', DS: 'P', P: 'A', A: '' };
 const KIND_TITLE: Record<string, string> = { '': 'Normal set', A: 'Assisted', DS: 'Drop set', P: 'Partial' };
 
@@ -230,8 +230,8 @@ export const SessionView = ({ autoStart, data, defaultRest, sessionId, vibrate, 
         // The recorded time of a timed exercise, unless it was entered already
         const entry = entries.rows.find((row) => row.id === set.session_exercise);
         const exercise = data.exerciseById.get(data.slotById.get(entry?.chosen || entry?.slot || '')?.exercise ?? '');
-        if (timeField(exercise) && !timeOf(set, exercise) && set.started_at) {
-            sets.patch(set.id, timeChange(exercise, Math.max(1, Math.round((Date.now() - set.started_at) / 1000))));
+        if (exercise?.timed && !set.seconds && set.started_at) {
+            sets.patch(set.id, { seconds: Math.max(1, Math.round((Date.now() - set.started_at) / 1000)) });
         }
         const here = blockOf.get(set.id);
         const after = order.slice(order.findIndex((row) => row.id === set.id) + 1).find(isOpen);
@@ -455,14 +455,14 @@ export const SessionView = ({ autoStart, data, defaultRest, sessionId, vibrate, 
                                                                     : '–'}
                                                             </span>
                                                         )}
-                                                        {(!exercise || exercise.unit === 'reps' || exercise.unit === 'meters') && (
+                                                        {(!exercise || exercise.unit === 'reps') && (
                                                             <label>
                                                                 <input
                                                                     type='number'
                                                                     inputMode='decimal'
                                                                     min={0}
                                                                     value={set.value || ''}
-                                                                    placeholder={UNIT_LABEL[exercise ? mainUnit(exercise) : 'reps']}
+                                                                    placeholder='reps'
                                                                     onChange={(event) =>
                                                                         sets.patch(set.id, {
                                                                             value: number(event.target.value),
@@ -471,47 +471,22 @@ export const SessionView = ({ autoStart, data, defaultRest, sessionId, vibrate, 
                                                                 />
                                                             </label>
                                                         )}
-                                                        {timeField(exercise) && (
-                                                            <>
-                                                                <label>
-                                                                    <input
-                                                                        type='number'
-                                                                        inputMode='numeric'
-                                                                        min={0}
-                                                                        value={Math.floor(timeOf(set, exercise) / 60) || ''}
-                                                                        placeholder='min'
-                                                                        onChange={(event) =>
-                                                                            sets.patch(
-                                                                                set.id,
-                                                                                timeChange(
-                                                                                    exercise,
-                                                                                    Math.floor(number(event.target.value)) * 60 + (timeOf(set, exercise) % 60),
-                                                                                ),
-                                                                            )
-                                                                        }
-                                                                    />
-                                                                </label>
-                                                                <label>
-                                                                    <input
-                                                                        type='number'
-                                                                        inputMode='numeric'
-                                                                        min={0}
-                                                                        max={59}
-                                                                        value={timeOf(set, exercise) % 60 || ''}
-                                                                        placeholder='sec'
-                                                                        onChange={(event) =>
-                                                                            sets.patch(
-                                                                                set.id,
-                                                                                timeChange(
-                                                                                    exercise,
-                                                                                    Math.floor(timeOf(set, exercise) / 60) * 60 +
-                                                                                        Math.min(59, Math.floor(number(event.target.value))),
-                                                                                ),
-                                                                            )
-                                                                        }
-                                                                    />
-                                                                </label>
-                                                            </>
+                                                        {exercise?.timed && (
+                                                            <label>
+                                                                <input
+                                                                    type='number'
+                                                                    inputMode='decimal'
+                                                                    min={0}
+                                                                    step='any'
+                                                                    value={timeShown(set.seconds, exercise) || ''}
+                                                                    placeholder={UNIT_LABEL[timeUnit(exercise)]}
+                                                                    onChange={(event) =>
+                                                                        sets.patch(set.id, {
+                                                                            seconds: timeStored(number(event.target.value), exercise),
+                                                                        })
+                                                                    }
+                                                                />
+                                                            </label>
                                                         )}
                                                         {exercise?.distanced && (
                                                             <label>
@@ -520,11 +495,11 @@ export const SessionView = ({ autoStart, data, defaultRest, sessionId, vibrate, 
                                                                     inputMode='decimal'
                                                                     min={0}
                                                                     step='any'
-                                                                    value={set.distance || ''}
-                                                                    placeholder='km'
+                                                                    value={distanceShown(set.distance, exercise) || ''}
+                                                                    placeholder={UNIT_LABEL[distanceUnit(exercise)]}
                                                                     onChange={(event) =>
                                                                         sets.patch(set.id, {
-                                                                            distance: number(event.target.value),
+                                                                            distance: distanceStored(number(event.target.value), exercise),
                                                                         })
                                                                     }
                                                                 />

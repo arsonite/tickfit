@@ -87,6 +87,12 @@ class Importer:
         self.signatures: dict = {}  # workout id -> signature
         self.counts = {'workouts': 0, 'plans': 0, 'sessions': 0, 'sets': 0, 'skipped': 0}
 
+    def measured(self, line: dict, amount: float) -> dict:
+        """The value of a set as the exercise keeps it: reps, or the time in seconds, or the distance in km"""
+        chosen = canonical(line['chosen'], self.aliases).casefold() if line['chosen'] else ''
+        unit = next((alt['unit'] for alt in line['alternatives'] if canonical(alt['exercise'], self.aliases).casefold() == chosen), line['unit'])
+        return {'value': 0 if unit != 'reps' else amount, 'seconds': amount * 60 if unit == 'minutes' else 0, 'distance': amount / 1000 if unit == 'meters' else 0}
+
     def load(self, weeks: list):
         self.exercise_ids = ensure_exercises(self.api, weeks, self.aliases)
         self.exercise_names = {value: key for key, value in self.exercise_ids.items()}
@@ -174,8 +180,9 @@ class Importer:
         sets = []
         for entry, (session, _, _, line) in zip(entries, wanted):
             for position, value in enumerate(v for v in line['values'] if is_done(v)):
+                amount = value['value'] or 0
                 sets.append({
-                    'session': session['id'], 'session_exercise': entry['id'], 'position': position, 'value': value['value'] or 0, 'weight': value['weight'] or 0,
+                    'session': session['id'], 'session_exercise': entry['id'], 'position': position, 'weight': value['weight'] or 0, **self.measured(line, amount),
                     'kind': value['kind'], 'disabled': value['disabled'], 'done': not value['disabled'], 'started_at': 0, 'ended_at': 0,
                     'rest_started_at': 0, 'rest_ended_at': 0, 'rev': self.now,
                 })

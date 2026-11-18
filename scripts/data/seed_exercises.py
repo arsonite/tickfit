@@ -31,18 +31,28 @@ from common import HERE, Api, DEFAULT_URL, canonical, load_aliases, load_weeks, 
 CATALOGUE = HERE / 'exercises.json'
 
 
+def counted(item: dict) -> dict:
+    """What an exercise counts: the unit of the sheets (reps, minutes, meters) becomes reps, a time or a distance."""
+    unit = item['unit']
+    return {
+        'unit': 'none' if unit in ('minutes', 'meters') else unit,
+        'timed': bool(item.get('timed')) or unit == 'minutes', 'time_unit': item.get('time_unit') or ('minutes' if unit == 'minutes' else 'seconds'),
+        'distanced': bool(item.get('distanced')) or unit == 'meters', 'distance_unit': item.get('distance_unit') or ('meters' if unit == 'meters' else 'km'),
+    }
+
+
 def wanted(weeks: list, aliases: dict, catalogue: Path = CATALOGUE) -> dict:
-    """casefolded name -> {name, unit, weighted, category, timed, distanced}. The catalogue wins over what the sheets say."""
+    """casefolded name -> {name, unit, weighted, category, timed, time_unit, distanced, distance_unit}. The catalogue wins over what the sheets say."""
     found = {}
     for item in json.loads(catalogue.read_text('utf-8')) if catalogue.exists() else []:
-        found[item['name'].casefold()] = {'name': item['name'], 'unit': item['unit'], 'weighted': item.get('weighted', False), 'notes': item.get('notes', ''),
-                                     'category': item.get('category', ''), 'timed': item.get('timed', False), 'distanced': item.get('distanced', False)}
+        found[item['name'].casefold()] = {'name': item['name'], 'weighted': item.get('weighted', False), 'notes': item.get('notes', ''),
+                                     'category': item.get('category', ''), **counted(item)}
     for week in weeks:
         for workout in week['workouts']:
             for line in workout['lines']:
                 for entry in [line, *line['alternatives']]:
                     name = canonical(entry['exercise'], aliases)
-                    found.setdefault(name.casefold(), {'name': name, 'unit': entry['unit'], 'weighted': line['weighted'], 'notes': ''})
+                    found.setdefault(name.casefold(), {'name': name, 'weighted': line['weighted'], 'notes': '', **counted(entry)})
     return found
 
 

@@ -18,7 +18,6 @@ from teatype.db.hsdb.core import HSDBMigration
 # The training clock (Session, SetLog) and the versions of a workout (Workout). Rows that exist already were not timed
 # and are the first version of their workout.
 
-
 class TimeTracking(HSDBMigration):
     def migrate(self):
         fields = {

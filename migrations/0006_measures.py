@@ -18,7 +18,6 @@
 # Third-party imports
 from teatype.db.hsdb.core import HSDBMigration
 
-
 class Measures(HSDBMigration):
     def migrate(self):
         for name, fields in (('Exercise', {'category': '', 'timed': False, 'distanced': False}), ('SetLog', {'seconds': 0.0, 'distance': 0.0})):

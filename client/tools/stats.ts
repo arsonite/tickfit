@@ -17,7 +17,7 @@
 
 // Utility
 import { addDays, calendarWeek, mondayOf, today as todayISO } from '@/tools/dates';
-import { familyOf, mainUnit } from '@/tools/training';
+import { distanceUnit, familyOf, mainUnit, timeUnit, valueOf } from '@/tools/training';
 
 // Types
 import type { iEntry, iExercise, iPlan, iPlanDay, iSession, iSet, iSlot, iWorkout, tSetKind } from '@/types';
@@ -66,7 +66,7 @@ interface iLog {
     replaced?: string; // The exercise that the line is for, when it differs
     session: string;
     set: iSet;
-    value: number; // Reps, minutes or meters
+    value: number; // In the main unit of the exercise: reps, else time, else distance
     volume: number;
     weight: number;
 }
@@ -195,7 +195,7 @@ const formatMinutes = (minutes: number): string => {
     return total >= 60 ? `${Math.floor(total / 60)} h ${String(total % 60).padStart(2, '0')} min` : `${total} min`;
 };
 
-const UNIT_LABEL = { km: 'km', meters: 'm', minutes: 'min', reps: 'reps' };
+const UNIT_LABEL = { km: 'km', meters: 'm', minutes: 'min', reps: 'reps', seconds: 's' };
 
 const unitOf = (exercise: iExercise): string => UNIT_LABEL[mainUnit(exercise)];
 
@@ -204,16 +204,12 @@ const formatSet = (exercise: iExercise, log: Pick<iLog, 'kind' | 'value' | 'weig
     const parts: string[] = [];
     if (exercise.unit === 'reps') {
         parts.push(formatNumber(log.value));
-    } else if (exercise.unit === 'minutes') {
-        parts.push(`${formatNumber(log.value)}min`);
-    } else if (exercise.unit === 'meters') {
-        parts.push(`${formatNumber(log.value)}m`);
     }
-    if (exercise.timed && exercise.unit !== 'minutes' && log.seconds) {
-        parts.push(`${formatNumber(log.seconds)}s`);
+    if (exercise.timed && log.seconds) {
+        parts.push(timeUnit(exercise) === 'minutes' ? `${formatNumber(log.seconds / 60)}min` : `${formatNumber(log.seconds)}s`);
     }
     if (exercise.distanced && log.distance) {
-        parts.push(`${formatNumber(log.distance)}km`);
+        parts.push(distanceUnit(exercise) === 'meters' ? `${formatNumber(log.distance * 1000)}m` : `${formatNumber(log.distance)}km`);
     }
     const amount = parts.join(' · ');
     const weight = exercise.weighted && log.weight > 0 ? `${formatNumber(log.weight)}kg` : '';
@@ -243,7 +239,7 @@ const buildStats = (input: iStatsInput, range: iRange = {}): iStatsContext => {
         }
         const main = slotById.get(entry.slot);
         const kind = set.kind ?? '';
-        const value = exercise.unit === 'none' ? (exercise.timed ? (set.seconds ?? 0) / 60 : (set.distance ?? 0)) : (set.value ?? 0);
+        const value = valueOf(set, exercise);
         const weight = set.weight ?? 0;
         const alternative = Boolean(chosen.alternative_of) || (Boolean(main) && main?.id !== chosen.id);
         logs.push({
