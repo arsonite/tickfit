@@ -14,6 +14,7 @@
 
 # Third-party imports
 from teatype.db.hsdb.core import HSDBAttribute, HSDBModel, HSDBRawFile
+from teatype.db.hsdb.core.HSDBRawFileType import image_png
 
 # One movement, e.g. "Dumbbell Preacher Curl"
 class Exercise(HSDBModel):
@@ -21,7 +22,7 @@ class Exercise(HSDBModel):
     archived  = HSDBAttribute(bool, description='Put away: kept for what was logged with it, not offered for new workout lines')
     category  = HSDBAttribute(str, description='Free text the exercises are filtered by, e.g. "pull"')
     distanced = HSDBAttribute(bool, description='A set also has a distance in km')
-    image     = HSDBRawFile(description='Picture: send {type, data} (base64) or a data URL, it is stored in rawfiles/image/ and the value is its path')
+    image     = HSDBRawFile(image_png, description='Picture of the exercise')
     name      = HSDBAttribute(str, required=True)
     notes     = HSDBAttribute(str, description='Machine settings and cues, e.g. "Rack: 4"')
     timed     = HSDBAttribute(bool, description='A set also has a time (minutes and seconds)')

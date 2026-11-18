@@ -220,25 +220,29 @@ export const WeekView = ({ data, onNavigate, onOpen, showLastWeek }: iWeekViewPr
 
                             {session ? (
                                 <button className='day__body' onClick={() => onOpen(session.id)}>
-                                    <strong>{workoutName(session)}</strong>
-                                    {workout?.focus && <span className='muted'>{workout.focus}</span>}
-                                    <span className={`badge badge--${session.status}`}>
-                                        {STATUS_LABEL[session.status]}
+                                    <span className='day__info'>
+                                        <strong>{workoutName(session)}</strong>
+                                        {workout?.focus && <span className='muted'>{workout.focus}</span>}
+                                        <span className={`badge badge--${session.status}`}>
+                                            {STATUS_LABEL[session.status]}
+                                        </span>
                                     </span>
                                     {(workout?.kind === 'rest' || session.status !== 'planned' || date !== now) && (
-                                        <Icon
-                                            className='day__status'
-                                            size={36}
-                                            name={
-                                                workout?.kind === 'rest'
-                                                    ? 'moon'
-                                                    : session.status === 'done'
-                                                      ? 'check-circle'
-                                                      : session.status === 'skipped'
-                                                        ? 'skip'
-                                                        : 'calendar'
-                                            }
-                                        />
+                                        <span className='day__side'>
+                                            <Icon
+                                                className='day__status'
+                                                size={36}
+                                                name={
+                                                    workout?.kind === 'rest'
+                                                        ? 'moon'
+                                                        : session.status === 'done'
+                                                          ? 'check-circle'
+                                                          : session.status === 'skipped'
+                                                            ? 'skip'
+                                                            : 'calendar'
+                                                }
+                                            />
+                                        </span>
                                     )}
                                 </button>
                             ) : (

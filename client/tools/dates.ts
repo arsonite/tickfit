@@ -55,6 +55,10 @@ const calendarWeek = (iso: string): { week: number; year: number } => {
 
 const weekdayName = (iso: string): string => parse(iso).toLocaleDateString('en-GB', { weekday: 'long' });
 
-const shortDate = (iso: string): string => parse(iso).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
+// dd.mm.yyyy
+const shortDate = (iso: string): string => {
+    const [year, month, day] = iso.split('-');
+    return `${day}.${month}.${year}`;
+};
 
 export { ROMAN, addDays, calendarWeek, mondayOf, parse, shortDate, toISO, today, weekdayName, weekDays };

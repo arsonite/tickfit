@@ -127,13 +127,31 @@
 
     // Grey, so the state of the day shows at a glance: done, rest, still to come (today has the green border)
     &__status {
-        align-self: center;
         flex: none;
-        margin: auto 0; // Centred in the space the text leaves
 
         color: var(--text-tertiary);
         opacity: 0.55;
         pointer-events: none;
+    }
+
+    // Info on the left, the status icon in a box of its own on the right
+    &__info {
+        display: flex;
+        flex: 1;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
+
+        min-width: 0;
+    }
+
+    &__side {
+        display: flex;
+        flex: none;
+        align-items: center;
+        justify-content: center;
+
+        width: 56px;
     }
 
     &__body {
@@ -141,8 +159,7 @@
 
         display: flex;
         flex: 1;
-        flex-direction: column;
-        gap: 4px;
+        gap: 8px;
 
         padding: 10px;
 
