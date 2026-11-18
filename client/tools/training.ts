@@ -16,7 +16,7 @@
  */
 
 // Types
-import type { iEntry, iSession, iSet, iWorkout } from '@/types';
+import type { iEntry, iPlan, iPlanDay, iSession, iSet, iWorkout } from '@/types';
 
 /** All versions of a workout share the id of the first one */
 const familyOf = (workout: iWorkout): string => workout.family || workout.id;
@@ -84,15 +84,31 @@ const trainedHistory = (sessions: iSession[], entries: iEntry[], sets: iSet[], e
     return history;
 };
 
-/** The time between the end of the set before and the start of this set: picking the next exercise, the rest included */
-const transitionBefore = (set: iSet, all: iSet[], sessionStart: number): number => {
-    if (!set.started_at) {
-        return 0;
+/**
+ * What a week is made of: the name of the plan if the week is that plan (day by day from Monday, other days only
+ * rest days), "custom" if days were added, changed or moved by hand, null if the week is empty. Workouts count by
+ * family, so a version that was made later still matches.
+ */
+const weekPlan = (days: (iSession | undefined)[], plans: iPlan[], planDays: iPlanDay[], workoutOf: (id: string) => iWorkout | undefined): string | null => {
+    if (!days.some(Boolean)) {
+        return null;
     }
-    const start = set.started_at;
-    const previous = Math.max(sessionStart, ...all.filter((other) => other.id !== set.id && other.ended_at && other.ended_at <= start).map((other) => other.ended_at ?? 0));
-    return Math.max(0, start - previous);
+    const family = (id: string) => {
+        const workout = workoutOf(id);
+        return workout ? familyOf(workout) : id;
+    };
+    const match = [...plans]
+        .sort((a, b) => Number(Boolean(b.active)) - Number(Boolean(a.active)) || a.name.localeCompare(b.name))
+        .find((plan) => {
+            const own = planDays.filter((day) => day.plan === plan.id).sort((a, b) => a.position - b.position);
+            return (
+                own.length > 0 &&
+                own.length <= days.length &&
+                days.every((session, index) => (index < own.length ? session && family(session.workout) === family(own[index].workout) : !session || workoutOf(session.workout)?.kind === 'rest'))
+            );
+        });
+    return match?.name ?? 'Custom';
 };
 
-export { clock, familyOf, hasOpenRest, interleave, isOpen, isRunning, isTrained, suggestNext, trainedHistory, transitionBefore };
+export { clock, familyOf, hasOpenRest, interleave, isOpen, isRunning, isTrained, suggestNext, trainedHistory, weekPlan };
 export type { iTrained };

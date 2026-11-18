@@ -159,12 +159,15 @@ const useTickfit = ({ error: toastError, info, success }: iUseTeaToastReturn, st
 
     // Older versions of a workout are only kept for what was logged with them
     const workoutList = useMemo(() => workouts.rows.filter((workout) => !workout.archived), [workouts.rows]);
+    // Exercises and plans that were put away are only kept for the stats and for what already uses them
+    const exerciseList = useMemo(() => exercises.rows.filter((exercise) => !exercise.archived), [exercises.rows]);
+    const planList = useMemo(() => plans.rows.filter((plan) => !plan.archived), [plans.rows]);
     const training = useTraining(sessions, sets);
     // The day that is being trained: started and not finished
     const trainingSession = sessions.rows.find((session) => session.status === 'planned' && session.started_at && !session.finished_at);
 
     // Only active plans can be put on a week; of those, the default is offered first
-    const activePlans = useMemo(() => plans.rows.filter((plan) => plan.active).sort((a, b) => a.name.localeCompare(b.name)), [plans.rows]);
+    const activePlans = useMemo(() => plans.rows.filter((plan) => plan.active && !plan.archived).sort((a, b) => a.name.localeCompare(b.name)), [plans.rows]);
     const defaultPlan = activePlans.find((plan) => plan.default) ?? activePlans[0];
 
     /** The main lines of a workout, the warm-up first, each with the alternatives to it */
@@ -301,6 +304,15 @@ const useTickfit = ({ error: toastError, info, success }: iUseTeaToastReturn, st
         [plans],
     );
 
+    /** An archived plan is not active anymore, so it is not the default either */
+    const archivePlan = useCallback(
+        (id: string, archived: boolean) => {
+            plans.patch(id, archived ? { active: false, archived, default: false } : { archived });
+            settleDefault();
+        },
+        [plans, settleDefault],
+    );
+
     const removePlan = useCallback(
         (id: string) => {
             planDays.remove(planDays.current().filter((day) => day.plan === id).map((day) => day.id));
@@ -414,8 +426,10 @@ const useTickfit = ({ error: toastError, info, success }: iUseTeaToastReturn, st
         defaultPlan,
         entries,
         exerciseById,
+        exerciseList,
         load,
         planDays,
+        planList,
         plans,
         sessions,
         sets,
@@ -432,6 +446,7 @@ const useTickfit = ({ error: toastError, info, success }: iUseTeaToastReturn, st
         snapshot,
         sync: { resetLocal, save: sync.save, status: sync.status, unsavedCount: sync.unsavedCount },
 
+        archivePlan,
         setActive,
         setDefault,
         addDay,

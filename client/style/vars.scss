@@ -35,8 +35,6 @@
     --text-primary: #ffffff;
     --text-secondary: #98989d;
     --text-tertiary: #636366;
-    --transition: #bf5af2; // Between two sets
-    --transition-glow: rgba(191, 90, 242, 0.22);
     --warning: #ff9f0a;
 
     // TeaType component variable mappings (for TeaSidebar, TeaModal, TeaToast, inputs)
@@ -63,8 +61,6 @@ body.light-mode {
     --text-primary: #1d1d1f;
     --text-secondary: #6e6e73;
     --text-tertiary: #8e8e93;
-    --transition: #af52de;
-    --transition-glow: rgba(175, 82, 222, 0.16);
     --bg-glass: rgba(255, 255, 255, 0.8);
     --glass-border: rgba(0, 0, 0, 0.1);
     --glass-highlight: rgba(255, 255, 255, 0.5);

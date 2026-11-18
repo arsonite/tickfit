@@ -27,6 +27,7 @@ interface iRow {
 }
 
 interface iExercise extends iRow {
+    archived?: boolean; // Put away, kept for what was logged with it
     image?: string;
     name: string;
     notes?: string;
@@ -62,6 +63,7 @@ interface iSlot extends iRow {
 
 interface iPlan extends iRow {
     active?: boolean; // Can be put on a week
+    archived?: boolean; // Put away, never active
     default?: boolean; // The active plan that is offered first
     name: string;
     notes?: string;

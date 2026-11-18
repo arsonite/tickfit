@@ -31,7 +31,7 @@ import { useNow } from '@/hooks/useNow';
 
 // Utility
 import { shortDate, today, weekdayName } from '@/tools/dates';
-import { clock, familyOf, interleave, isOpen, isRunning, suggestNext, trainedHistory, transitionBefore } from '@/tools/training';
+import { clock, familyOf, interleave, isOpen, isRunning, suggestNext, trainedHistory } from '@/tools/training';
 import type { iTrained } from '@/tools/training';
 
 // Types
@@ -158,7 +158,7 @@ export const SessionView = ({ data, defaultRest, sessionId, vibrate, onBack }: i
     }, [lines]);
 
     // The sets in the order they are likely done in, how each is called and which block and line of it each belongs to
-    const { blockOf, inBlock, names, next, order } = useMemo(() => {
+    const { blockOf, follow, names, open, order } = useMemo(() => {
         const names = new Map<string, string>();
         const blockOf = new Map<string, { block: number; line: number }>();
         const order = blocks.flatMap((block, blockIndex) => {
@@ -172,15 +172,15 @@ export const SessionView = ({ data, defaultRest, sessionId, vibrate, onBack }: i
             });
             return interleave(perLine);
         });
+        // Only the next set of the exercise (or superset) that was just trained is suggested, the next exercise is picked by the lifter
         const next = suggestNext(order);
-        // The next set is of the exercise (or superset) that was just trained: no new exercise to pick, so no transition
         const lastDone = order.reduce<iSet | undefined>((best, set) => (set.ended_at && set.ended_at >= (best?.ended_at ?? 0) ? set : best), undefined);
-        const inBlock = Boolean(next && lastDone && blockOf.get(next.id)?.block === blockOf.get(lastDone.id)?.block);
-        return { blockOf, inBlock, names, next, order };
+        const follow = next && lastDone && !order.some(isRunning) && blockOf.get(next.id)?.block === blockOf.get(lastDone.id)?.block ? next : undefined;
+        return { blockOf, follow, names, open: order.some(isOpen), order };
     }, [blocks, data.exerciseById, data.slotById, sets.rows]);
 
     // The next set is where the eyes should be
-    const nextId = next?.id;
+    const nextId = follow?.id;
     useEffect(() => {
         if (training && nextId) {
             document.querySelector(`[data-set="${nextId}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -192,13 +192,18 @@ export const SessionView = ({ data, defaultRest, sessionId, vibrate, onBack }: i
     }
     const workout = data.workoutById.get(session.workout);
 
-    // Finishing a set that is followed by a set of the same exercise (or the next round of the superset) starts the rest right away
+    // In a superset the next line starts right away, there is no time in between. After a round, or a set of a single exercise, the rest starts.
     const finishSet = (set: iSet) => {
         data.training.finishSet(set.id);
         const here = blockOf.get(set.id);
         const after = order.slice(order.findIndex((row) => row.id === set.id) + 1).find(isOpen);
         const there = after && blockOf.get(after.id);
-        if (here && there && here.block === there.block && there.line <= here.line) {
+        if (!after || !here || !there || here.block !== there.block) {
+            return;
+        }
+        if (there.line > here.line) {
+            data.training.startSet(after.id);
+        } else {
             data.training.startRest(set.id);
         }
     };
@@ -256,7 +261,7 @@ export const SessionView = ({ data, defaultRest, sessionId, vibrate, onBack }: i
             </header>
 
             {training && (
-                <TrainBar data={data} defaultRest={defaultRest} describe={(set) => names.get(set.id) ?? 'Set'} inBlock={inBlock} next={next} session={session} vibrate={vibrate} onFinish={finishSet} />
+                <TrainBar data={data} defaultRest={defaultRest} describe={(set) => names.get(set.id) ?? 'Set'} next={follow} open={open} session={session} vibrate={vibrate} onFinish={finishSet} />
             )}
 
             {blocks.map((block, blockIndex) => (
@@ -280,7 +285,7 @@ export const SessionView = ({ data, defaultRest, sessionId, vibrate, onBack }: i
                             const current = training && logged.some(isRunning);
                             // Every set is done: nothing of the exercise changes until a set is undone
                             const finished = logged.some((set) => !set.disabled) && logged.every((set) => set.disabled || set.done);
-                            const upNext = training && !current && next?.session_exercise === entry.id;
+                            const upNext = training && !current && follow?.session_exercise === entry.id;
                             // Disabled sets do not take a number, so the numbers are those of the order they are done in
                             const numbers = new Map(logged.filter((set) => !set.disabled).map((set, position) => [set.id, position + 1]));
 
@@ -322,7 +327,7 @@ export const SessionView = ({ data, defaultRest, sessionId, vibrate, onBack }: i
                                     {previous && (
                                         <div className='line__last'>
                                             <span>Last trained {shortDate(previous.date)}</span>
-                                            {weighted && !finished && (
+                                            {weighted && !finished && lastSets.some((row) => row.weight) && (
                                                 <button className='link' title='The kg of the last time, set by set' onClick={() => takeOverWeights(logged, lastSets)}>
                                                     Take over kg
                                                 </button>
@@ -340,7 +345,7 @@ export const SessionView = ({ data, defaultRest, sessionId, vibrate, onBack }: i
                                                     <div
                                                         data-set={set.id}
                                                         className={`set ${set.disabled ? 'set--off' : ''} ${set.done ? 'set--done' : ''} ${training && isRunning(set) ? 'set--current' : ''} ${
-                                                            training && next?.id === set.id ? (inBlock ? 'set--follow' : 'set--next') : ''
+                                                            training && follow?.id === set.id ? 'set--follow' : ''
                                                         }`}
                                                     >
                                                         <span className='set__no'>{set.disabled ? '–' : `${prefix}${no}`}</span>
@@ -354,7 +359,6 @@ export const SessionView = ({ data, defaultRest, sessionId, vibrate, onBack }: i
                                                                 type='number'
                                                                 inputMode='decimal'
                                                                 min={0}
-                                                                disabled={set.done}
                                                                 value={set.value || ''}
                                                                 placeholder={UNIT_LABEL[exercise?.unit ?? 'reps']}
                                                                 onChange={(event) => sets.patch(set.id, { value: number(event.target.value) })}
@@ -368,7 +372,6 @@ export const SessionView = ({ data, defaultRest, sessionId, vibrate, onBack }: i
                                                                         inputMode='decimal'
                                                                         min={0}
                                                                         step='any'
-                                                                        disabled={set.done}
                                                                         value={set.weight || ''}
                                                                         placeholder='kg'
                                                                         onChange={(event) => sets.patch(set.id, { weight: number(event.target.value) })}
@@ -384,7 +387,6 @@ export const SessionView = ({ data, defaultRest, sessionId, vibrate, onBack }: i
                                                         <div className='set__actions'>
                                                             <button
                                                                 className={`mini ${set.kind ? 'mini--on' : ''}`}
-                                                                disabled={set.done}
                                                                 title={KIND_TITLE[set.kind ?? '']}
                                                                 onClick={() => sets.patch(set.id, { kind: NEXT_KIND[set.kind ?? ''] })}
                                                             >
@@ -426,7 +428,6 @@ export const SessionView = ({ data, defaultRest, sessionId, vibrate, onBack }: i
                                                     </div>
                                                     {ran && (
                                                         <div className='set__times'>
-                                                            <span className='set__transition'>Transition {clock(transitionBefore(set, order, session.started_at ?? 0))}</span>
                                                             <span>Set {clock((set.ended_at ?? 0) - (set.started_at ?? 0))}</span>
                                                             {Boolean(set.rest_started_at && set.rest_ended_at) && <span>Rest {clock((set.rest_ended_at ?? 0) - (set.rest_started_at ?? 0))}</span>}
                                                         </div>
@@ -456,7 +457,6 @@ export const SessionView = ({ data, defaultRest, sessionId, vibrate, onBack }: i
 
                                     <input
                                         className='line__comment'
-                                        disabled={finished}
                                         placeholder='Comment, e.g. rack spot, seat height'
                                         value={entry.notes ?? ''}
                                         onChange={(event) => entries.patch(entry.id, { notes: event.target.value })}

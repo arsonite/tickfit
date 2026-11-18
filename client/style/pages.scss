@@ -70,6 +70,10 @@
     &:hover {
         border-color: var(--border-strong);
     }
+
+    &--archived {
+        opacity: 0.7;
+    }
 }
 
 .list {

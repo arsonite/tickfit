@@ -61,8 +61,13 @@ export const WorkoutsView = ({ data }: iWorkoutsViewProps) => {
     const workout = data.workoutById.get(selected ?? '') ?? workouts[0];
     const lines = workout ? data.linesOf(workout.id) : [];
     const locked = workout ? data.isLocked(workout.id) : false;
-    const exercises = [...data.exercises.rows].sort((a, b) => a.name.localeCompare(b.name));
+    const exercises = [...data.exerciseList].sort((a, b) => a.name.localeCompare(b.name));
     const exerciseOptions = exercises.map((exercise) => ({ label: exercise.name, value: exercise.id }));
+    // A line can still use an exercise that was archived afterwards
+    const optionsFor = (current: string) => {
+        const away = data.exerciseById.get(current);
+        return away?.archived ? [{ label: `${away.name} (archived)`, value: away.id }, ...exerciseOptions] : exerciseOptions;
+    };
 
     // Changes go through here: a workout that was trained is not changed, its changed copy is (see editable of useTickfit)
     const change = (apply: (workoutId: string, slot: (id: string) => string) => void) => {
@@ -176,7 +181,7 @@ export const WorkoutsView = ({ data }: iWorkoutsViewProps) => {
         <div key={main.id} className='slot'>
             <div className='slot__row'>
                 <Thumb exercise={data.exerciseById.get(main.exercise)} />
-                <TeaAutocomplete className='slot__exercise' value={main.exercise} options={exerciseOptions} onChange={(exercise) => editSlot(main.id, { exercise })} />
+                <TeaAutocomplete className='slot__exercise' value={main.exercise} options={optionsFor(main.exercise)} onChange={(exercise) => editSlot(main.id, { exercise })} />
                 <TeaInput className='slot__num' label='Sets' type='number' min={1} value={main.sets || ''} onChange={(event) => editSlot(main.id, { sets: number(event.target.value) || 1 })} />
                 <TeaInput className='slot__num' label='From' type='number' min={0} value={main.rep_min || ''} onChange={(event) => editSlot(main.id, { rep_min: number(event.target.value) })} />
                 <TeaInput className='slot__num' label='To' type='number' min={0} value={main.rep_max || ''} onChange={(event) => editSlot(main.id, { rep_max: number(event.target.value) })} />
@@ -191,7 +196,7 @@ export const WorkoutsView = ({ data }: iWorkoutsViewProps) => {
             {alternatives.map((alternative) => (
                 <div key={alternative.id} className='slot__row slot__row--alt'>
                     <span className='muted'>or</span>
-                    <TeaAutocomplete className='slot__exercise' value={alternative.exercise} options={exerciseOptions} onChange={(exercise) => editSlot(alternative.id, { exercise })} />
+                    <TeaAutocomplete className='slot__exercise' value={alternative.exercise} options={optionsFor(alternative.exercise)} onChange={(exercise) => editSlot(alternative.id, { exercise })} />
                     <TeaInput className='slot__num' type='number' min={0} placeholder='From' value={alternative.rep_min || ''} onChange={(event) => editSlot(alternative.id, { rep_min: number(event.target.value) })} />
                     <TeaInput className='slot__num' type='number' min={0} placeholder='To' value={alternative.rep_max || ''} onChange={(event) => editSlot(alternative.id, { rep_max: number(event.target.value) })} />
                     <button className='mini' title='Remove alternative' onClick={() => dropSlot(alternative.id)}>✕</button>

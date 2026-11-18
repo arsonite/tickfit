@@ -53,11 +53,16 @@ export const ExercisesView = ({ data }: iExercisesViewProps) => {
     const confirm = useConfirm();
     const [draft, setDraft] = useState<tDraft | null>(null);
     const [query, setQuery] = useState('');
+    const [showArchived, setShowArchived] = useState(false);
     const file = useRef<HTMLInputElement>(null);
 
-    const shown = data.exercises.rows
+    const matching = data.exercises.rows
         .filter((exercise) => exercise.name.toLowerCase().includes(query.trim().toLowerCase()))
         .sort((a, b) => a.name.localeCompare(b.name));
+    const shown = matching.filter((exercise) => !exercise.archived);
+    const archived = matching.filter((exercise) => exercise.archived);
+    const archivedCount = data.exercises.rows.filter((exercise) => exercise.archived).length;
+    const away = Boolean(draft?.archived);
 
     const save = () => {
         if (!draft?.name.trim()) {
@@ -69,6 +74,14 @@ export const ExercisesView = ({ data }: iExercisesViewProps) => {
             data.exercises.patch(id, fields);
         } else {
             data.exercises.add(fields);
+        }
+    };
+
+    // Put away: kept for what was logged with it, not offered for new workout lines
+    const archive = (archived: boolean) => {
+        if (draft?.id) {
+            data.exercises.patch(draft.id, { archived });
+            setDraft(null);
         }
     };
 
@@ -111,7 +124,7 @@ export const ExercisesView = ({ data }: iExercisesViewProps) => {
                 <TeaButton theme='filled' onClick={() => setDraft(BLANK)}>New exercise</TeaButton>
             </header>
 
-            {!shown.length && <div className='empty'>{data.exercises.rows.length ? 'Nothing found.' : 'No exercises yet.'}</div>}
+            {!shown.length && <div className='empty'>{data.exercises.rows.length - archivedCount ? 'Nothing found.' : 'No exercises yet.'}</div>}
 
             <div className='cards'>
                 {shown.map((exercise) => (
@@ -123,21 +136,43 @@ export const ExercisesView = ({ data }: iExercisesViewProps) => {
                 ))}
             </div>
 
+            {archivedCount > 0 && (
+                <div className='list'>
+                    <button className='list__toggle' onClick={() => setShowArchived(!showArchived)}>
+                        {showArchived ? '▾' : '▸'} Archived ({archivedCount})
+                    </button>
+                    {showArchived && (
+                        <div className='cards'>
+                            {archived.map((exercise) => (
+                                <button key={exercise.id} className='card card--archived' onClick={() => setDraft({ ...BLANK, ...exercise })}>
+                                    <Thumb exercise={exercise} size='large' />
+                                    <strong>{exercise.name}</strong>
+                                    <span className='muted'>{exercise.unit}{exercise.weighted ? ' · kg' : ''}</span>
+                                </button>
+                            ))}
+                            {!archived.length && <div className='empty'>Nothing found.</div>}
+                        </div>
+                    )}
+                </div>
+            )}
+
             <TeaModal
                 isOpen={draft !== null}
                 title={draft?.id ? 'Exercise' : 'New exercise'}
                 footer={
                     <div className='modal-actions'>
                         {draft?.id && <TeaButton theme='danger' onClick={() => void remove()}>Delete</TeaButton>}
+                        {draft?.id && <TeaButton onClick={() => archive(!away)}>{away ? 'Unarchive' : 'Archive'}</TeaButton>}
                         <span className='grow' />
                         <TeaButton onClick={() => setDraft(null)}>Cancel</TeaButton>
-                        <TeaButton theme='filled' disabled={!draft?.name.trim()} onClick={() => void save()}>Save</TeaButton>
+                        <TeaButton theme='filled' disabled={!draft?.name.trim() || away} onClick={() => void save()}>Save</TeaButton>
                     </div>
                 }
                 onClose={() => setDraft(null)}
             >
                 {draft && (
-                    <div className='form'>
+                    <fieldset className='form editor__body' disabled={away}>
+                        {away && <p className='editor__archived'>Archived: kept for what was logged with it and cannot be changed until it is unarchived. Workouts that use it keep it.</p>}
                         <div className='form__picture'>
                             <Thumb exercise={draft as iExercise} size='large' />
                             <div className='form__picture-actions'>
@@ -150,7 +185,7 @@ export const ExercisesView = ({ data }: iExercisesViewProps) => {
                         <TeaSelect label='Counted in' value={draft.unit} options={UNITS} onChange={(event) => setDraft({ ...draft, unit: event.target.value as tUnit })} />
                         <TeaCheckbox label='With weight (kg)' checked={!!draft.weighted} onChange={(weighted) => setDraft({ ...draft, weighted })} />
                         <TeaTextarea label='Notes' rows={3} placeholder='Seat height, grip, cues …' value={draft.notes ?? ''} onChange={(event) => setDraft({ ...draft, notes: event.target.value })} />
-                    </div>
+                    </fieldset>
                 )}
             </TeaModal>
         </div>

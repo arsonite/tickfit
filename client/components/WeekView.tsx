@@ -27,7 +27,7 @@ import type { tData } from '@/hooks/useTickfit';
 
 // Utility
 import { ROMAN, addDays, calendarWeek, mondayOf, shortDate, today, weekDays, weekdayName } from '@/tools/dates';
-import { isTrained } from '@/tools/training';
+import { isTrained, weekPlan } from '@/tools/training';
 
 // Types
 import type { iSession } from '@/types';
@@ -95,6 +95,7 @@ export const WeekView = ({ data, onNavigate, onOpen, showLastWeek }: iWeekViewPr
 
     const planOptions = data.activePlans.map((row) => ({ label: row.id === data.defaultPlan?.id ? `${row.name} (default)` : row.name, value: row.id }));
     const free = days.filter((date) => !sessionOn(date)).length;
+    const made = weekPlan(days.map(sessionOn), data.plans.rows, data.planDays.rows, (id) => data.workoutById.get(id));
 
     return (
         <div className={`week ${drag ? 'week--dragging' : ''}`}>
@@ -105,6 +106,14 @@ export const WeekView = ({ data, onNavigate, onOpen, showLastWeek }: iWeekViewPr
                     </h1>
                     <p className='muted'>
                         {shortDate(days[0])} – {shortDate(days[6])}
+                        {made && (
+                            <>
+                                {' · '}
+                                <span className={`badge ${made === 'Custom' ? '' : 'badge--done'}`} title={made === 'Custom' ? 'Days were added, changed or moved by hand' : 'This week is the plan'}>
+                                    {made === 'Custom' ? 'Custom' : `Plan: ${made}`}
+                                </span>
+                            </>
+                        )}
                     </p>
                 </div>
                 <div className='week__nav'>

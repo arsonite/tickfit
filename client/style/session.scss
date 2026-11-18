@@ -72,7 +72,8 @@
     }
 
     &--next {
-        border-color: var(--transition);
+        border-color: var(--accent);
+        border-style: dashed;
     }
 
     &__letter {
@@ -219,18 +220,6 @@
         border-color: var(--accent);
     }
 
-    // The one that is suggested next
-    &--next {
-        background: var(--transition-glow);
-        border-color: var(--transition);
-
-        .mini--start {
-            background: var(--transition);
-            border-color: var(--transition);
-            color: #fff;
-        }
-    }
-
     // The next set of the exercise (or superset) that is going on
     &--follow {
         border: 1px dashed var(--accent);
@@ -278,10 +267,6 @@
         color: var(--text-tertiary);
         font-size: 12px;
         font-variant-numeric: tabular-nums;
-    }
-
-    &__transition {
-        color: var(--transition);
     }
 
     input:disabled {
@@ -343,27 +328,13 @@
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow);
 
-    // A set is running: green. Between the sets: purple, the transition that is timed as well.
+    // A set is running: green. Between the sets: dashed. No exercise going on: plain.
     &--set {
         background: color-mix(in srgb, var(--accent) 16%, var(--bg-tertiary));
     }
 
     &--rest {
         border-style: dashed;
-    }
-
-    &--transition {
-        background: color-mix(in srgb, var(--transition) 18%, var(--bg-tertiary));
-        border-color: var(--transition);
-
-        .trainbar__go {
-            background: var(--transition);
-            color: #fff;
-        }
-
-        .trainbar__fill {
-            background: var(--transition-glow);
-        }
     }
 
     &__phase {
@@ -393,9 +364,9 @@
         padding: 0 12px;
 
         background: none;
-        border: 1px solid var(--transition);
+        border: 1px solid var(--accent);
         border-radius: var(--radius-md);
-        color: var(--transition);
+        color: var(--accent);
         cursor: pointer;
         font: inherit;
         font-weight: 600;

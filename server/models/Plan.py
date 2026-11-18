@@ -19,6 +19,7 @@ from teatype.db.hsdb.core import HSDBAttribute, HSDBModel
 class Plan(HSDBModel):
     rev    = HSDBAttribute(int, description='Save timestamp (ms) of the last write by a client, set by the sync')
     active = HSDBAttribute(bool, description='The plan can be put on a week')
+    archived = HSDBAttribute(bool, description='Put away: kept for the stats, not active and not offered anywhere')
     default = HSDBAttribute(bool, description='The active plan that is offered first, only one has it')
     name   = HSDBAttribute(str, required=True)
     notes  = HSDBAttribute(str, description='Shown above the week, e.g. the legend of the flags')

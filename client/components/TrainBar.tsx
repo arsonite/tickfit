@@ -37,22 +37,21 @@ interface iTrainBarProps {
 
     /** What a set is called, e.g. "Standing Calf Raises · set 2" */
     describe: (set: iSet) => string;
-    /** The next set is of the exercise (or superset) that was just trained: no new exercise to pick, so no transition */
-    inBlock: boolean;
-    /** The set that is likely to come next, any other can be started in the list as well */
+    /** The next set of the exercise (or superset) that is going on. Without one the lifter picks the next exercise. */
     next?: iSet;
+    /** There is something left to pick */
+    open: boolean;
 
     /** Finishes the set (and starts the rest by itself when the exercise goes on) */
     onFinish: (set: iSet) => void;
 }
 
 /**
- * The clock of the training and what is going on. While a set runs the bar is green. As soon as it is over the
- * lifter is in the transition (purple): picking the next exercise, maybe resting. That is timed as well, and the rest
- * is started by hand because only the lifter knows when a set is over. Inside an exercise or a superset there is nothing
- * to pick: the rest starts by itself and the bar keeps the colour of the exercise.
+ * The clock of the training and what is going on. While a set runs the bar is green. Inside an exercise or a superset
+ * the rest starts by itself after a round and the next set is shown. When an exercise is done the lifter picks the
+ * next one in the list, the rest can still be started by hand.
  */
-export const TrainBar = ({ data, defaultRest, describe, inBlock, next, onFinish, session, vibrate }: iTrainBarProps) => {
+export const TrainBar = ({ data, defaultRest, describe, next, onFinish, open, session, vibrate }: iTrainBarProps) => {
     const now = useNow(true);
     const workout = data.workoutById.get(session.workout);
     const target = (workout?.rest_seconds || defaultRest) * 1000;
@@ -61,7 +60,6 @@ export const TrainBar = ({ data, defaultRest, describe, inBlock, next, onFinish,
     const running = mine.find(isRunning);
     const resting = mine.find(hasOpenRest);
     const lastDone = mine.filter((set) => set.ended_at).sort((a, b) => (b.ended_at ?? 0) - (a.ended_at ?? 0))[0];
-    const transitionStart = lastDone?.ended_at ?? session.started_at ?? now;
     const canRest = Boolean(lastDone && !resting && !lastDone.rest_started_at);
     const restDone = Boolean(lastDone?.rest_started_at && lastDone.rest_ended_at);
 
@@ -78,7 +76,7 @@ export const TrainBar = ({ data, defaultRest, describe, inBlock, next, onFinish,
     }, [over, resting, vibrate]);
 
     return (
-        <div className={`trainbar ${running ? 'trainbar--set' : inBlock ? 'trainbar--rest' : 'trainbar--transition'}`}>
+        <div className={`trainbar ${running ? 'trainbar--set' : next ? 'trainbar--rest' : ''}`}>
             <div className='trainbar__clock' title='Training time'>
                 {clock(now - (session.started_at ?? now))}
             </div>
@@ -96,10 +94,8 @@ export const TrainBar = ({ data, defaultRest, describe, inBlock, next, onFinish,
             ) : (
                 <>
                     <div className='trainbar__phase'>
-                        <span className='trainbar__label'>
-                            {inBlock ? 'Next set' : 'Transition'} · {clock(now - transitionStart)}
-                        </span>
-                        <span className='trainbar__what'>{next ? (inBlock ? describe(next) : 'Pick the next set below or start the suggested one') : 'Nothing open anymore'}</span>
+                        <span className='trainbar__label'>{next ? 'Next set' : open ? 'Pick the next exercise' : 'Nothing open anymore'}</span>
+                        <span className='trainbar__what'>{next ? describe(next) : open ? 'Start a set of it in the list below' : 'Finish the workout when you are done'}</span>
                     </div>
 
                     {resting ? (

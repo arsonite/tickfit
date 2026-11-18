@@ -35,9 +35,15 @@ interface iPlansViewProps {
 export const PlansView = ({ data }: iPlansViewProps) => {
     const confirm = useConfirm();
     const [selected, setSelected] = useState<string | null>(null);
+    const [showArchived, setShowArchived] = useState(false);
+    const [search, setSearch] = useState('');
 
-    const plans = [...data.plans.rows].sort((a, b) => Number(Boolean(b.active)) - Number(Boolean(a.active)) || a.name.localeCompare(b.name));
-    const plan = plans.find((row) => row.id === selected) ?? data.defaultPlan ?? plans[0];
+    const plans = [...data.planList].sort((a, b) => Number(Boolean(b.active)) - Number(Boolean(a.active)) || a.name.localeCompare(b.name));
+    // Put away: kept for the stats and for the weeks they were used in, shown read-only
+    const archivedAll = data.plans.rows.filter((row) => row.archived);
+    const archived = archivedAll.filter((row) => row.name.toLowerCase().includes(search.trim().toLowerCase())).sort((a, b) => a.name.localeCompare(b.name));
+    const plan = data.plans.rows.find((row) => row.id === selected) ?? data.defaultPlan ?? plans[0];
+    const away = Boolean(plan?.archived);
     const isDefault = plan?.id === data.defaultPlan?.id;
     const days = plan ? data.planDays.rows.filter((day) => day.plan === plan.id).sort((a, b) => a.position - b.position) : [];
     const workouts = [...data.workoutList].sort((a, b) => a.name.localeCompare(b.name));
@@ -94,39 +100,64 @@ export const PlansView = ({ data }: iPlansViewProps) => {
                     </button>
                 ))}
                 {!plans.length && <div className='empty'>No plans yet.</div>}
+                {archivedAll.length > 0 && (
+                    <>
+                        <button className='list__toggle' onClick={() => setShowArchived(!showArchived)}>
+                            {showArchived ? '▾' : '▸'} Archived ({archivedAll.length})
+                        </button>
+                        {showArchived && (
+                            <>
+                                <TeaInput placeholder='Search archived' value={search} onChange={(event) => setSearch(event.target.value)} />
+                                {archived.map((row) => (
+                                    <button key={row.id} className={`list__item list__item--off ${row.id === plan?.id ? 'list__item--on' : ''}`} onClick={() => setSelected(row.id)}>
+                                        {row.name}
+                                    </button>
+                                ))}
+                            </>
+                        )}
+                    </>
+                )}
             </aside>
 
             {plan && (
                 <section className='editor'>
-                    <TeaInput label='Name' value={plan.name} onChange={(event) => data.plans.patch(plan.id, { name: event.target.value })} />
-                    <TeaTextarea label='Notes' rows={2} value={plan.notes ?? ''} onChange={(event) => data.plans.patch(plan.id, { notes: event.target.value })} />
+                    {away && <p className='editor__archived'>Archived: kept for the stats and cannot be changed or added to a week until it is unarchived.</p>}
+                    <fieldset className='editor__body' disabled={away}>
+                        <TeaInput label='Name' value={plan.name} onChange={(event) => data.plans.patch(plan.id, { name: event.target.value })} />
+                        <TeaTextarea label='Notes' rows={2} value={plan.notes ?? ''} onChange={(event) => data.plans.patch(plan.id, { notes: event.target.value })} />
 
-                    <h2>Days <span className='muted'>Monday, Tuesday, … in this order</span></h2>
-                    {days.map((day, index) => (
-                        <div key={day.id} className='slot__row'>
-                            <span className='day__no'>Day {ROMAN[index] ?? index + 1}</span>
-                            <TeaAutocomplete className='slot__exercise' value={day.workout} options={optionsFor(day.workout)} onChange={(workout) => data.planDays.patch(day.id, { workout })} />
-                            <button className='mini' title='Up' disabled={index === 0} onClick={() => move(index, -1)}>↑</button>
-                            <button className='mini' title='Down' disabled={index === days.length - 1} onClick={() => move(index, 1)}>↓</button>
-                            <button className='mini' title='Remove' onClick={() => data.planDays.remove([day.id])}>✕</button>
+                        <h2>Days <span className='muted'>Monday, Tuesday, … in this order</span></h2>
+                        {days.map((day, index) => (
+                            <div key={day.id} className='slot__row'>
+                                <span className='day__no'>Day {ROMAN[index] ?? index + 1}</span>
+                                <TeaAutocomplete className='slot__exercise' value={day.workout} options={optionsFor(day.workout)} onChange={(workout) => data.planDays.patch(day.id, { workout })} />
+                                <button className='mini' title='Up' disabled={index === 0} onClick={() => move(index, -1)}>↑</button>
+                                <button className='mini' title='Down' disabled={index === days.length - 1} onClick={() => move(index, 1)}>↓</button>
+                                <button className='mini' title='Remove' onClick={() => data.planDays.remove([day.id])}>✕</button>
+                            </div>
+                        ))}
+                        <div className='editor__actions'>
+                            <TeaButton disabled={!workouts.length || days.length >= 7} onClick={addDay}>Add day</TeaButton>
+                            {!workouts.length && <span className='muted'>Create a workout first.</span>}
                         </div>
-                    ))}
-                    <div className='editor__actions'>
-                        <TeaButton disabled={!workouts.length || days.length >= 7} onClick={addDay}>Add day</TeaButton>
-                        {!workouts.length && <span className='muted'>Create a workout first.</span>}
-                    </div>
+                    </fieldset>
 
                     <div className='editor__actions'>
-                        <TeaButton theme={plan.active ? undefined : 'filled'} onClick={() => data.setActive(plan.id, !plan.active)}>{plan.active ? 'Deactivate' : 'Activate'}</TeaButton>
-                        {plan.active && !isDefault && <TeaButton onClick={() => data.setDefault(plan.id)}>Make default</TeaButton>}
-                        <span className='muted'>
-                            {!plan.active
-                                ? 'Only active plans can be added to a week.'
-                                : isDefault
-                                  ? 'Active, and offered first when adding a plan to a week.'
-                                  : 'Active, can be added to a week.'}
-                        </span>
+                        {!away && (
+                            <>
+                                <TeaButton theme={plan.active ? undefined : 'filled'} onClick={() => data.setActive(plan.id, !plan.active)}>{plan.active ? 'Deactivate' : 'Activate'}</TeaButton>
+                                {plan.active && !isDefault && <TeaButton onClick={() => data.setDefault(plan.id)}>Make default</TeaButton>}
+                                <span className='muted'>
+                                    {!plan.active
+                                        ? 'Only active plans can be added to a week.'
+                                        : isDefault
+                                          ? 'Active, and offered first when adding a plan to a week.'
+                                          : 'Active, can be added to a week.'}
+                                </span>
+                            </>
+                        )}
                         <span className='grow' />
+                        <TeaButton onClick={() => { data.archivePlan(plan.id, !away); if (!away) { setSelected(null); } }}>{away ? 'Unarchive' : 'Archive'}</TeaButton>
                         <TeaButton theme='danger' onClick={() => void remove()}>Delete plan</TeaButton>
                     </div>
                 </section>
