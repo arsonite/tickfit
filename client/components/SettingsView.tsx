@@ -49,6 +49,25 @@ export const SettingsView = ({ data, onChange, onClose, settings }: iSettingsVie
         }
     };
 
+    const refetch = async () => {
+        // What is not on the server yet is sent first, so only what could not be sent is lost
+        let lost = data.sync.unsavedCount;
+        if (lost && (await data.sync.save()).ok) {
+            lost = 0;
+        }
+        const ok = await confirm({
+            title: 'Clear local data',
+            message: lost
+                ? `${lost} change${lost === 1 ? '' : 's'} could not be sent to the server and ${lost === 1 ? 'is' : 'are'} lost. Everything else is fetched from the server again.`
+                : 'The copy on this device is deleted and everything is fetched from the server again. Settings of this device stay.',
+            confirmText: 'Clear and fetch',
+            variant: 'danger',
+        });
+        if (ok) {
+            await data.sync.resetLocal();
+        }
+    };
+
     const categories: iTeaSettingsCategory[] = [
         {
             id: 'appearance',
@@ -148,6 +167,12 @@ export const SettingsView = ({ data, onChange, onClose, settings }: iSettingsVie
                             label: 'Sync now',
                             description: data.sync.unsavedCount ? `${data.sync.unsavedCount} change${data.sync.unsavedCount > 1 ? 's' : ''} not on the server yet.` : 'Everything is on the server.',
                             control: { type: 'button', label: 'Sync', onClick: () => void data.sync.save() },
+                        },
+                        {
+                            id: 'clear-local',
+                            label: 'Clear local data',
+                            description: 'Deletes the copy on this device and fetches everything from the server again. Changes that are not on the server yet are sent first.',
+                            control: { type: 'button', label: 'Clear', theme: 'danger', onClick: () => void refetch() },
                         },
                     ],
                 },

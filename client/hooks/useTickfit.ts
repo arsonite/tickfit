@@ -123,7 +123,17 @@ const useTickfit = ({ error: toastError, info, success }: iUseTeaToastReturn, st
     });
 
     // One transaction, so the sync meta never says more than the saved tables
-    usePersist(localStore, { ...Object.fromEntries(views.map(([name, table]) => [name, table.rows])), sync: sync.meta });
+    // Nothing is written while the device copy is being thrown away, or the page would save it again when it reloads
+    const [wiping, setWiping] = useState(false);
+    usePersist(localStore, { ...Object.fromEntries(views.map(([name, table]) => [name, table.rows])), sync: sync.meta }, !wiping);
+
+    /** Deletes the device copy and reloads: the app starts like on a new device and fetches everything from the server */
+    const resetLocal = useCallback(async () => {
+        setWiping(true);
+        await new Promise((resolve) => setTimeout(resolve, 100)); // Lets the render that stops the saving happen first
+        await localStore.clear();
+        window.location.reload();
+    }, []);
 
     // A device that never synced waits for the server before it shows an empty app, one that cannot reach it does not wait
     const load = settled || sync.status === 'offline' ? 'ready' : 'loading';
@@ -402,7 +412,7 @@ const useTickfit = ({ error: toastError, info, success }: iUseTeaToastReturn, st
         exercises,
         training: { ...training, session: trainingSession },
 
-        sync: { save: sync.save, status: sync.status, unsavedCount: sync.unsavedCount },
+        sync: { resetLocal, save: sync.save, status: sync.status, unsavedCount: sync.unsavedCount },
 
         setActive,
         setDefault,
