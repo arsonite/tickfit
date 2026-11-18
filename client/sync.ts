@@ -79,7 +79,7 @@ const define = <L extends iRow>(api: typeof HSDBBaseAPI, name: string, defaults:
 
 // A row points to rows of the collections before it, so this is also the order of saving
 const exerciseCollection = define<iExercise>(ExerciseAPI, 'exercises', { image: '', name: '', notes: '', unit: 'reps', weighted: false });
-const workoutCollection = define<iWorkout>(WorkoutAPI, 'workouts', { focus: '', kind: 'strength', name: '', notes: '', rest_seconds: 0, warmup: '' });
+const workoutCollection = define<iWorkout>(WorkoutAPI, 'workouts', { archived: false, family: '', focus: '', kind: 'strength', name: '', notes: '', rest_seconds: 0, version: 1, warmup: '' });
 const planCollection = define<iPlan>(PlanAPI, 'plans', { active: false, name: '', notes: '' });
 const slotCollection = define<iSlot>(
     SlotAPI,
@@ -88,12 +88,12 @@ const slotCollection = define<iSlot>(
     { alternative_of: 'slots', exercise: 'exercises', workout: 'workouts' },
 );
 const planDayCollection = define<iPlanDay>(PlanDayAPI, 'planDays', { position: 0 }, { plan: 'plans', workout: 'workouts' });
-const sessionCollection = define<iSession>(SessionAPI, 'sessions', { date: '', notes: '', plan_day: -1, status: 'planned' }, { workout: 'workouts' });
+const sessionCollection = define<iSession>(SessionAPI, 'sessions', { date: '', finished_at: 0, notes: '', plan_day: -1, started_at: 0, status: 'planned' }, { workout: 'workouts' });
 const entryCollection = define<iEntry>(EntryAPI, 'entries', { notes: '' }, { chosen: 'slots', session: 'sessions', slot: 'slots' });
 const setCollection = define<iSet>(
     SetAPI,
     'sets',
-    { disabled: false, done: false, kind: '', position: 0, value: 0, weight: 0 },
+    { disabled: false, done: false, ended_at: 0, kind: '', position: 0, rest_ended_at: 0, rest_started_at: 0, started_at: 0, value: 0, weight: 0 },
     { session: 'sessions', session_exercise: 'entries' },
 );
 

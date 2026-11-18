@@ -39,7 +39,7 @@ export const PlansView = ({ data }: iPlansViewProps) => {
     const plans = [...data.plans.rows].sort((a, b) => a.name.localeCompare(b.name));
     const plan = plans.find((row) => row.id === selected) ?? data.activePlan ?? plans[0];
     const days = plan ? data.planDays.rows.filter((day) => day.plan === plan.id).sort((a, b) => a.position - b.position) : [];
-    const workouts = [...data.workouts.rows].sort((a, b) => a.name.localeCompare(b.name));
+    const workouts = [...data.workoutList].sort((a, b) => a.name.localeCompare(b.name));
     const options = workouts.map((workout) => ({ label: workout.name, value: workout.id }));
 
     const create = () => setSelected(data.plans.add({ active: false, name: 'New plan' }).id);

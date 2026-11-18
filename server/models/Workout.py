@@ -18,9 +18,12 @@ from teatype.db.hsdb.core import HSDBAttribute, HSDBModel
 # A training day, e.g. "Full Body A1" or "Rest"
 class Workout(HSDBModel):
     rev          = HSDBAttribute(int, description='Save timestamp (ms) of the last write by a client, set by the sync')
+    archived     = HSDBAttribute(bool, description='An older version, kept for the logs that were made with it')
+    family       = HSDBAttribute(str, description='Id of the first version, all versions of a workout share it')
     focus        = HSDBAttribute(str, description='E.g. Upper Body')
     kind         = HSDBAttribute(str, required=True, description='strength, cardio or rest')
     name         = HSDBAttribute(str, required=True)
     notes        = HSDBAttribute(str)
     rest_seconds = HSDBAttribute(int, description='Pause between sets')
+    version      = HSDBAttribute(int, description='1 for the first, a changed workout that was trained already becomes a new version')
     warmup       = HSDBAttribute(str)

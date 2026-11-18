@@ -26,6 +26,7 @@ import useIsMobile from '@teatype/hooks/useIsMobile';
 import { ExercisesView } from '@/components/ExercisesView';
 import { PlansView } from '@/components/PlansView';
 import { SessionView } from '@/components/SessionView';
+import { TrainBanner } from '@/components/TrainBar';
 import { WeekView } from '@/components/WeekView';
 import { WorkoutsView } from '@/components/WorkoutsView';
 
@@ -92,6 +93,15 @@ const Tickfit = ({ stored }: { stored: tStored }) => {
             </TeaSidebar>
 
             <main>
+                {!(view === 'week' && sessionId) && (
+                    <TrainBanner
+                        data={data}
+                        onOpen={(id) => {
+                            setView('week');
+                            setSessionId(id);
+                        }}
+                    />
+                )}
                 {data.load === 'loading' && <div className='empty'>Loading…</div>}
                 {data.load === 'ready' && (
                     <>

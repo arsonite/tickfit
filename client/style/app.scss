@@ -38,6 +38,10 @@
 
     &--mobile > main {
         padding: 16px 14px 40px 58px;
+
+        .trainbar {
+            top: -16px;
+        }
     }
 }
 
@@ -167,6 +171,20 @@ p {
     &--on {
         border-color: var(--warning);
         color: var(--warning);
+    }
+
+    &--wide {
+        min-width: 64px;
+        padding: 0 8px;
+
+        font-variant-numeric: tabular-nums;
+    }
+
+    &--run {
+        background: var(--warning);
+        border-color: var(--warning);
+        color: #000;
+        font-weight: 600;
     }
 
     &--ok {

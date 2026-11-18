@@ -20,9 +20,11 @@ from .Workout import Workout
 
 # A workout on a date, the dates move when days are missed or shifted
 class Session(HSDBModel):
-    rev      = HSDBAttribute(int, description='Save timestamp (ms) of the last write by a client, set by the sync')
-    date     = HSDBAttribute(str, required=True, indexed=True, description='YYYY-MM-DD')
-    notes    = HSDBAttribute(str, description='Comment on the day')
-    plan_day = HSDBAttribute(int, description='Position in the plan this day was scheduled from, -1 when added by hand')
-    status   = HSDBAttribute(str, required=True, description='planned, done or skipped')
-    workout  = HSDBRelation.ManyToOne(Workout, required=True)
+    rev         = HSDBAttribute(int, description='Save timestamp (ms) of the last write by a client, set by the sync')
+    date        = HSDBAttribute(str, required=True, indexed=True, description='YYYY-MM-DD')
+    finished_at = HSDBAttribute(int, description='Unix time (ms) the training was finished, 0 = not')
+    notes       = HSDBAttribute(str, description='Comment on the day')
+    plan_day    = HSDBAttribute(int, description='Position in the plan this day was scheduled from, -1 when added by hand')
+    started_at  = HSDBAttribute(int, description='Unix time (ms) the training was started, 0 = not. The clock of the training runs from it')
+    status      = HSDBAttribute(str, required=True, description='planned, done or skipped')
+    workout     = HSDBRelation.ManyToOne(Workout, required=True)

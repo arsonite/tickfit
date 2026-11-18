@@ -74,7 +74,7 @@ export const WeekView = ({ data, onNavigate, onOpen }: iWeekViewProps) => {
 
     const sessionOn = (date: string): iSession | undefined => data.sessions.rows.find((session) => session.date === date);
     const workoutName = (session?: iSession) => data.workoutById.get(session?.workout ?? '')?.name ?? '?';
-    const workouts = [...data.workouts.rows].sort((a, b) => a.name.localeCompare(b.name));
+    const workouts = [...data.workoutList].sort((a, b) => a.name.localeCompare(b.name));
 
     const remove = async (session: iSession) => {
         setMenu(null);

@@ -27,6 +27,9 @@ import { Thumb } from '@/components/Thumb';
 // Hooks
 import type { tData } from '@/hooks/useTickfit';
 
+// Utility
+import { familyOf } from '@/tools/training';
+
 // Types
 import type { iSlot, iWorkout, tKind } from '@/types';
 
@@ -47,14 +50,26 @@ export const WorkoutsView = ({ data }: iWorkoutsViewProps) => {
     const confirm = useConfirm();
     const [selected, setSelected] = useState<string | null>(null);
 
-    const workouts = [...data.workouts.rows].sort((a, b) => a.name.localeCompare(b.name));
+    const workouts = [...data.workoutList].sort((a, b) => a.name.localeCompare(b.name));
     const workout = data.workoutById.get(selected ?? '') ?? workouts[0];
     const lines = workout ? data.linesOf(workout.id) : [];
+    const locked = workout ? data.isLocked(workout.id) : false;
     const exercises = [...data.exercises.rows].sort((a, b) => a.name.localeCompare(b.name));
     const exerciseOptions = exercises.map((exercise) => ({ label: exercise.name, value: exercise.id }));
 
-    const edit = (changes: Partial<iWorkout>) => workout && data.workouts.patch(workout.id, changes);
-    const editSlot = (id: string, changes: Partial<iSlot>) => data.slots.patch(id, changes);
+    // Changes go through here: a workout that was trained is not changed, its changed copy is (see editable of useTickfit)
+    const change = (apply: (workoutId: string, slot: (id: string) => string) => void) => {
+        if (!workout) {
+            return;
+        }
+        const target = data.editable(workout.id);
+        if (target.id !== workout.id) {
+            setSelected(target.id);
+        }
+        apply(target.id, (id) => target.slots.get(id) ?? id);
+    };
+    const edit = (changes: Partial<iWorkout>) => change((id) => data.workouts.patch(id, changes));
+    const editSlot = (id: string, changes: Partial<iSlot>) => change((_, slot) => data.slots.patch(slot(id), changes));
 
     const create = () => setSelected(data.workouts.add({ kind: 'strength', name: 'New workout' }).id);
 
@@ -76,11 +91,13 @@ export const WorkoutsView = ({ data }: iWorkoutsViewProps) => {
         if (!workout) {
             return;
         }
-        const days = data.sessions.rows.filter((session) => session.workout === workout.id).length;
+        const family = familyOf(workout);
+        const versions = new Set(data.workouts.rows.filter((row) => familyOf(row) === family).map((row) => row.id));
+        const days = data.sessions.rows.filter((session) => versions.has(session.workout)).length;
         const ok = await confirm({
             title: 'Delete workout',
             message: days
-                ? `${workout.name} is on ${days} day${days === 1 ? '' : 's'} of the schedule. They are deleted with everything that was logged.`
+                ? `${workout.name} is on ${days} day${days === 1 ? '' : 's'}${versions.size > 1 ? ` in ${versions.size} versions` : ''}. They are deleted with everything that was logged.`
                 : `Delete ${workout.name}?`,
             confirmText: 'Delete',
             variant: 'danger',
@@ -96,29 +113,34 @@ export const WorkoutsView = ({ data }: iWorkoutsViewProps) => {
             return;
         }
         const last = lines[lines.length - 1]?.main.position ?? -1;
-        data.slots.add({ exercise: exercises[0].id, position: last + 1, sets: 3, workout: workout.id });
+        change((id) => data.slots.add({ exercise: exercises[0].id, position: last + 1, sets: 3, workout: id }));
     };
 
     const addAlternative = (main: iSlot, count: number) =>
-        data.slots.add({ alternative_of: main.id, exercise: exercises[0].id, position: count, rep_max: main.rep_max, rep_min: main.rep_min, sets: main.sets, workout: main.workout });
+        change((id, slot) => data.slots.add({ alternative_of: slot(main.id), exercise: exercises[0].id, position: count, rep_max: main.rep_max, rep_min: main.rep_min, sets: main.sets, workout: id }));
+
+    const dropSlot = (id: string) => change((_, slot) => data.removeSlots([slot(id)]));
 
     const removeLine = async (slot: iSlot) => {
         const ok = await confirm({
             title: 'Remove exercise',
-            message: `Remove ${data.exerciseById.get(slot.exercise)?.name} from ${workout?.name}? What was logged for it is deleted.`,
+            message: `Remove ${data.exerciseById.get(slot.exercise)?.name} from ${workout?.name}?${locked ? '' : ' What was logged for it is deleted.'}`,
             confirmText: 'Remove',
             variant: 'danger',
         });
         if (ok) {
-            data.removeSlots([slot.id]);
+            dropSlot(slot.id);
         }
     };
 
     const move = (index: number, delta: number) => {
         const other = lines[index + delta];
         if (other) {
-            editSlot(lines[index].main.id, { position: other.main.position });
-            editSlot(other.main.id, { position: lines[index].main.position });
+            const [here, there] = [lines[index].main, other.main];
+            change((_, slot) => {
+                data.slots.patch(slot(here.id), { position: there.position });
+                data.slots.patch(slot(there.id), { position: here.position });
+            });
         }
     };
 
@@ -140,6 +162,12 @@ export const WorkoutsView = ({ data }: iWorkoutsViewProps) => {
 
             {workout && (
                 <section className='editor'>
+                    {((workout.version ?? 1) > 1 || locked) && (
+                        <p className='muted'>
+                            Version {workout.version ?? 1}
+                            {locked ? ' · it was trained, so a change makes a new version and the old one stays for the stats' : ''}
+                        </p>
+                    )}
                     <div className='form form--row'>
                         <TeaInput label='Name' value={workout.name} onChange={(event) => edit({ name: event.target.value })} />
                         <TeaSelect label='Type' value={workout.kind} options={KINDS} onChange={(event) => edit({ kind: event.target.value as tKind })} />
@@ -172,7 +200,7 @@ export const WorkoutsView = ({ data }: iWorkoutsViewProps) => {
                                     <TeaSelect className='slot__exercise' value={alternative.exercise} options={exerciseOptions} onChange={(event) => editSlot(alternative.id, { exercise: event.target.value })} />
                                     <TeaInput className='slot__num' type='number' min={0} placeholder='From' value={alternative.rep_min || ''} onChange={(event) => editSlot(alternative.id, { rep_min: number(event.target.value) })} />
                                     <TeaInput className='slot__num' type='number' min={0} placeholder='To' value={alternative.rep_max || ''} onChange={(event) => editSlot(alternative.id, { rep_max: number(event.target.value) })} />
-                                    <button className='mini' title='Remove alternative' onClick={() => data.removeSlots([alternative.id])}>✕</button>
+                                    <button className='mini' title='Remove alternative' onClick={() => dropSlot(alternative.id)}>✕</button>
                                 </div>
                             ))}
                             <button className='link' disabled={!exercises.length} onClick={() => addAlternative(main, alternatives.length)}>+ Alternative</button>

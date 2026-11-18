@@ -35,11 +35,14 @@ interface iExercise extends iRow {
 }
 
 interface iWorkout extends iRow {
+    archived?: boolean; // An older version, kept for what was logged with it
+    family?: string; // Id of the first version, shared by all versions
     focus?: string;
     kind: tKind;
     name: string;
     notes?: string;
     rest_seconds?: number;
+    version?: number;
     warmup?: string;
 }
 
@@ -68,10 +71,13 @@ interface iPlanDay extends iRow {
     workout: string;
 }
 
+// started_at and the times of the sets are Unix ms, 0 = did not happen
 interface iSession extends iRow {
     date: string; // YYYY-MM-DD
+    finished_at?: number;
     notes?: string;
     plan_day?: number;
+    started_at?: number;
     status: tStatus;
     workout: string;
 }
@@ -86,10 +92,14 @@ interface iEntry extends iRow {
 interface iSet extends iRow {
     disabled?: boolean;
     done?: boolean;
+    ended_at?: number;
     kind?: tSetKind;
     position: number;
+    rest_ended_at?: number;
+    rest_started_at?: number;
     session: string;
     session_exercise: string;
+    started_at?: number;
     value?: number;
     weight?: number;
 }

@@ -23,15 +23,18 @@ import { TeaButton, TeaTextarea } from '@teatype/components';
 
 // Components
 import { Thumb } from '@/components/Thumb';
+import { TrainBar } from '@/components/TrainBar';
 
 // Hooks
 import type { tData } from '@/hooks/useTickfit';
+import { useNow } from '@/hooks/useNow';
 
 // Utility
-import { shortDate, weekdayName } from '@/tools/dates';
+import { shortDate, today, weekdayName } from '@/tools/dates';
+import { clock, familyOf, isRunning } from '@/tools/training';
 
 // Types
-import type { iEntry, iExercise, iSet, tSetKind, tUnit } from '@/types';
+import type { iEntry, iExercise, iSet, iSlot, tSetKind, tUnit } from '@/types';
 
 interface iSessionViewProps {
     data: tData;
@@ -59,17 +62,24 @@ export const SessionView = ({ data, sessionId, onBack }: iSessionViewProps) => {
     const { entries, sets } = data;
     const started = useRef(false);
 
-    // What was done the last time this workout was done
+    // What was done the last time this workout was done, in whatever version it was
     const last = useMemo(() => {
+        const familyOfWorkout = (id: string) => {
+            const workout = data.workoutById.get(id);
+            return workout ? familyOf(workout) : id;
+        };
         const before = session
             ? data.sessions.rows
-                  .filter((row) => row.workout === session.workout && row.status === 'done' && row.date < session.date)
+                  .filter((row) => row.status === 'done' && row.date < session.date && familyOfWorkout(row.workout) === familyOfWorkout(session.workout))
                   .sort((a, b) => b.date.localeCompare(a.date))[0]
             : undefined;
         return before
             ? { entries: entries.rows.filter((entry) => entry.session === before.id), sets: sets.rows.filter((set) => set.session === before.id) }
             : null;
-    }, [data.sessions.rows, entries.rows, session, sets.rows]);
+    }, [data.sessions.rows, data.workoutById, entries.rows, session, sets.rows]);
+
+    // The lines of another version are other rows, so the exercise is what they have in common
+    const lastEntryOf = (slot: iSlot) => last?.entries.find((entry) => data.slotById.get(entry.slot)?.exercise === slot.exercise);
 
     // Opens the day: prepares the lines that are not yet with the values of the last time
     useEffect(() => {
@@ -83,17 +93,17 @@ export const SessionView = ({ data, sessionId, onBack }: iSessionViewProps) => {
         if (!missing.length) {
             return;
         }
-        const lastOf = (slot: string) => last?.entries.find((entry) => entry.slot === slot);
         const created = entries.addMany(
             missing.map(({ main, alternatives }) => {
-                const before = lastOf(main.id);
-                const keep = before && (before.chosen === main.id || alternatives.some((alternative) => alternative.id === before.chosen));
-                return { chosen: keep ? before.chosen : main.id, notes: before?.notes ?? '', session: session.id, slot: main.id };
+                const before = lastEntryOf(main);
+                const chosenBefore = data.slotById.get(before?.chosen ?? '')?.exercise;
+                const kept = [main, ...alternatives].find((slot) => slot.exercise === chosenBefore);
+                return { chosen: kept?.id ?? main.id, notes: before?.notes ?? '', session: session.id, slot: main.id };
             }),
         );
         sets.addMany(
             created.flatMap((entry) => {
-                const before = lastOf(entry.slot);
+                const before = lastEntryOf(data.slotById.get(entry.slot) as iSlot);
                 const old = before ? (last?.sets ?? []).filter((set) => set.session_exercise === before.id).sort(byPosition) : [];
                 const count = old.length || data.slotById.get(entry.slot)?.sets || 1;
                 return Array.from({ length: count }, (_, position) => ({
@@ -122,13 +132,28 @@ export const SessionView = ({ data, sessionId, onBack }: iSessionViewProps) => {
             .filter((line) => line.entry);
     }, [data, entries.rows, session]);
 
+    // Training: started, not finished. Before that the day is in plan mode, values can be filled in by hand
+    const training = Boolean(session && session.status === 'planned' && session.started_at && !session.finished_at);
+    const now = useNow(training);
+
+    // After which sets a rest makes sense: not between the lines of a superset, not after the last set
+    const restable = useMemo(() => {
+        const ids = new Set<string>();
+        const order = lines.flatMap(({ entry }, index) => {
+            const joined = Boolean(lines[index + 1]?.main.superset);
+            return sets.rows.filter((set) => set.session_exercise === entry?.id && !set.disabled).sort(byPosition).map((set) => ({ id: set.id, joined }));
+        });
+        order.slice(0, -1).forEach((item) => !item.joined && ids.add(item.id));
+        return ids;
+    }, [lines, sets.rows]);
+
     if (!session) {
         return <div className='empty'>This day does not exist anymore.</div>;
     }
     const workout = data.workoutById.get(session.workout);
 
     const describeSets = (entry: iEntry, exercise: iExercise | undefined): string => {
-        const before = last?.entries.find((old) => old.slot === entry.slot);
+        const before = lastEntryOf(data.slotById.get(entry.slot) as iSlot);
         if (!before) {
             return '';
         }
@@ -139,13 +164,16 @@ export const SessionView = ({ data, sessionId, onBack }: iSessionViewProps) => {
                 const weighted = exercise?.weighted ?? true;
                 return `${set.value || 0}${weighted ? ` × ${set.weight || 0}` : ''}${set.kind ? ` ${set.kind}` : ''}`;
             });
-        const other = before.chosen !== entry.chosen ? data.exerciseById.get(data.slotById.get(before.chosen)?.exercise ?? '')?.name : '';
+        const other = data.slotById.get(before.chosen)?.exercise !== data.slotById.get(entry.chosen)?.exercise ? data.exerciseById.get(data.slotById.get(before.chosen)?.exercise ?? '')?.name : '';
         return parts.length ? `${other ? `${other}: ` : ''}${parts.join(' · ')}` : '';
     };
 
     const toggleDone = () => {
         data.sessions.patch(session.id, { status: session.status === 'done' ? 'planned' : 'done' });
     };
+
+    const timed = Boolean(session.started_at && session.finished_at);
+    const startable = session.status === 'planned' && !session.started_at && session.date <= today();
 
     return (
         <div className='session'>
@@ -159,9 +187,20 @@ export const SessionView = ({ data, sessionId, onBack }: iSessionViewProps) => {
                     {workout?.focus ? ` · Focus: ${workout.focus}` : ''}
                     {workout?.rest_seconds ? ` · Rest ${workout.rest_seconds} s` : ''}
                 </p>
+                <p className='session__mode'>
+                    <span className={`badge ${training ? 'badge--done' : ''}`}>{training ? 'Training' : session.status === 'done' ? 'Done' : 'Plan mode'}</span>
+                    {timed && <span className='muted'>Training time {clock((session.finished_at ?? 0) - (session.started_at ?? 0))}</span>}
+                    {startable && (
+                        <TeaButton size='small' theme='filled' onClick={() => data.training.startSession(session.id)}>
+                            Start workout
+                        </TeaButton>
+                    )}
+                </p>
                 {workout?.warmup && <p className='session__warmup'>Warm-up: {workout.warmup}</p>}
                 {workout?.notes && <p className='muted'>{workout.notes}</p>}
             </header>
+
+            {training && <TrainBar data={data} session={session} restable={restable} />}
 
             {lines.map(({ main, alternatives, entry }, index) => {
                 if (!entry) {
@@ -245,13 +284,27 @@ export const SessionView = ({ data, sessionId, onBack }: iSessionViewProps) => {
                                     >
                                         ✕
                                     </button>
-                                    <button
-                                        className={`mini ${set.done ? 'mini--ok' : ''}`}
-                                        title='Done'
-                                        onClick={() => sets.patch(set.id, { done: !set.done })}
-                                    >
-                                        ✓
-                                    </button>
+                                    {!training ? (
+                                        <button
+                                            className={`mini ${set.done ? 'mini--ok' : ''}`}
+                                            title='Done'
+                                            onClick={() => sets.patch(set.id, { done: !set.done })}
+                                        >
+                                            ✓
+                                        </button>
+                                    ) : set.disabled ? null : isRunning(set) ? (
+                                        <button className='mini mini--wide mini--run' title='Finish the set' onClick={() => data.training.finishSet(set.id)}>
+                                            {clock(now - (set.started_at ?? now))} ✓
+                                        </button>
+                                    ) : set.done ? (
+                                        <button className='mini mini--wide mini--ok' title='Undo' onClick={() => data.training.undoSet(set.id)}>
+                                            {set.started_at && set.ended_at ? clock(set.ended_at - set.started_at) : ''} ✓
+                                        </button>
+                                    ) : (
+                                        <button className='mini mini--wide' title='Start the set' onClick={() => data.training.startSet(set.id)}>
+                                            ▶
+                                        </button>
+                                    )}
                                     <button className='mini' title='Remove set' onClick={() => sets.remove([set.id])}>
                                         −
                                     </button>
@@ -297,9 +350,15 @@ export const SessionView = ({ data, sessionId, onBack }: iSessionViewProps) => {
             />
 
             <footer className='session__foot'>
-                <TeaButton theme={session.status === 'done' ? 'default' : 'filled'} onClick={toggleDone}>
-                    {session.status === 'done' ? 'Reopen workout' : 'Complete workout'}
-                </TeaButton>
+                {training ? (
+                    <TeaButton theme='filled' onClick={() => data.training.finishSession(session.id)}>
+                        Finish workout
+                    </TeaButton>
+                ) : (
+                    <TeaButton theme={session.status === 'done' ? 'default' : 'filled'} onClick={session.status === 'done' && session.started_at ? () => data.training.reopenSession(session.id) : toggleDone}>
+                        {session.status === 'done' ? 'Reopen workout' : 'Complete workout'}
+                    </TeaButton>
+                )}
             </footer>
         </div>
     );

@@ -26,6 +26,7 @@ import type { iSyncReport } from '@teatype/sync';
 // Hooks
 import { useTable } from '@/hooks/useTable';
 import type { iTable } from '@/hooks/useTable';
+import { useTraining } from '@/hooks/useTraining';
 
 // Utility
 import {
@@ -44,6 +45,7 @@ import {
 import { addDays, mondayOf, today } from '@/tools/dates';
 import { extend, realign, shiftFrom, swap } from '@/tools/schedule';
 import { EXERCISES, PLAN, WORKOUTS } from '@/tools/seed';
+import { familyOf } from '@/tools/training';
 
 // Types
 import type { iChanges } from '@/tools/schedule';
@@ -134,6 +136,12 @@ const useTickfit = ({ error: toastError, info, success }: iUseTeaToastReturn, st
     const workoutById = useMemo(() => new Map(workouts.rows.map((row) => [row.id, row])), [workouts.rows]);
     const slotById = useMemo(() => new Map(slots.rows.map((row) => [row.id, row])), [slots.rows]);
 
+    // Older versions of a workout are only kept for what was logged with them
+    const workoutList = useMemo(() => workouts.rows.filter((workout) => !workout.archived), [workouts.rows]);
+    const training = useTraining(sessions, sets);
+    // The day that is being trained: started and not finished
+    const trainingSession = sessions.rows.find((session) => session.status === 'planned' && session.started_at && !session.finished_at);
+
     const activePlan = plans.rows.find((plan) => plan.active);
     const cycleOf = useCallback(
         (plan: string) =>
@@ -193,14 +201,58 @@ const useTickfit = ({ error: toastError, info, success }: iUseTeaToastReturn, st
         [purgeEntries, slots],
     );
 
+    /** A workout with all its versions */
     const removeWorkout = useCallback(
         (id: string) => {
-            removeSessions(sessions.current().filter((session) => session.workout === id).map((session) => session.id));
-            removeSlots(slots.current().filter((slot) => slot.workout === id && !slot.alternative_of).map((slot) => slot.id));
-            planDays.remove(planDays.current().filter((day) => day.workout === id).map((day) => day.id));
-            workouts.remove([id]);
+            const target = workouts.current().find((workout) => workout.id === id);
+            const ids = workouts.current().filter((workout) => workout.id === id || (target && familyOf(workout) === familyOf(target))).map((workout) => workout.id);
+            removeSessions(sessions.current().filter((session) => ids.includes(session.workout)).map((session) => session.id));
+            removeSlots(slots.current().filter((slot) => ids.includes(slot.workout) && !slot.alternative_of).map((slot) => slot.id));
+            planDays.remove(planDays.current().filter((day) => ids.includes(day.workout)).map((day) => day.id));
+            workouts.remove(ids);
         },
         [planDays, removeSessions, removeSlots, sessions, slots, workouts],
+    );
+
+    // ---- Versions of a workout
+
+    /** A workout that was trained (or is being) is history: its logs refer to its lines, so it must not change */
+    const isLocked = useCallback((id: string) => sessions.current().some((session) => session.workout === id && (session.status === 'done' || session.started_at)), [sessions]);
+
+    /**
+     * What to edit when a workout is to be changed. One that was never trained is changed in place. Otherwise it becomes
+     * an older version, kept as it was for the logs and the stats, and the changes go to a copy that takes over the
+     * plan and the days that are still to come. The map says which line of the copy is which of the old one.
+     */
+    const editable = useCallback(
+        (id: string): { id: string; slots: Map<string, string> } => {
+            const lines = new Map<string, string>();
+            const old = workouts.current().find((workout) => workout.id === id);
+            if (!old || !isLocked(id)) {
+                return { id, slots: lines };
+            }
+            const { id: _id, ...fields } = old; // eslint-disable-line @typescript-eslint/no-unused-vars
+            const copy = workouts.add({ ...fields, archived: false, family: familyOf(old), version: (old.version || 1) + 1 });
+            workouts.patch(old.id, { archived: true, family: familyOf(old) });
+
+            const own = slots.current().filter((slot) => slot.workout === id);
+            const mains = own.filter((slot) => !slot.alternative_of);
+            const alternatives = own.filter((slot) => slot.alternative_of);
+            const copies = slots.addMany(mains.map(({ id: _slot, ...slot }) => ({ ...slot, workout: copy.id }))); // eslint-disable-line @typescript-eslint/no-unused-vars
+            mains.forEach((slot, index) => lines.set(slot.id, copies[index].id));
+            const copiesOfAlternatives = slots.addMany(
+                alternatives.map(({ id: _slot, ...slot }) => ({ ...slot, alternative_of: lines.get(slot.alternative_of as string), workout: copy.id })), // eslint-disable-line @typescript-eslint/no-unused-vars
+            );
+            alternatives.forEach((slot, index) => lines.set(slot.id, copiesOfAlternatives[index].id));
+
+            planDays.current().filter((day) => day.workout === id).forEach((day) => planDays.patch(day.id, { workout: copy.id }));
+            // Days that were not trained move on, their prepared lines belong to the old version and are made again when opened
+            const ahead = sessions.current().filter((session) => session.workout === id && session.status === 'planned' && !session.started_at);
+            purgeEntries((entry) => ahead.some((session) => session.id === entry.session));
+            ahead.forEach((session) => sessions.patch(session.id, { workout: copy.id }));
+            return { id: copy.id, slots: lines };
+        },
+        [isLocked, planDays, purgeEntries, sessions, slots, workouts],
     );
 
     const removeExercise = useCallback(
@@ -361,14 +413,18 @@ const useTickfit = ({ error: toastError, info, success }: iUseTeaToastReturn, st
         slotById,
         slots,
         workoutById,
+        workoutList,
         workouts,
         exercises,
+        training: { ...training, session: trainingSession },
 
         sync: { save: sync.save, status: sync.status, unsavedCount: sync.unsavedCount },
 
         activate,
         addDay,
+        editable,
         ensure,
+        isLocked,
         linesOf,
         moveDay,
         onError,
