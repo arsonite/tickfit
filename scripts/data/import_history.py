@@ -46,20 +46,25 @@ def split_notes(text: str) -> tuple:
 
 
 def signature(lines: list) -> tuple:
-    """What makes a workout the same one: [(exercise, sets, rep_min, rep_max, superset, (alternatives))]."""
-    return tuple((name, sets, low or 0, high or 0, bool(superset), tuple(alts)) for name, sets, low, high, superset, alts in lines)
+    """What makes a workout the same one: [(exercise, sets, rep_min, rep_max, superset, warmup, (alternatives))]."""
+    return tuple((name, sets, low or 0, high or 0, bool(superset), bool(warmup), tuple(alts)) for name, sets, low, high, superset, warmup, alts in lines)
 
 
 def doc_signature(workout: dict, aliases: dict) -> tuple:
     return signature([
-        (canonical(line['exercise'], aliases).casefold(), line['sets'], line['rep_min'], line['rep_max'], line['superset'],
+        (canonical(line['exercise'], aliases).casefold(), line['sets'], line['rep_min'], line['rep_max'], line['superset'], line['warmup'],
          [canonical(alt['exercise'], aliases).casefold() for alt in line['alternatives']])
         for line in workout['lines']
     ])
 
 
+def is_done(value: dict) -> bool:
+    """The sheets paste last week's weights into the new week and leave 0 in unused cells, only reps (or an X) tell that a set was done."""
+    return value['disabled'] or bool(value['value'])
+
+
 def has_numbers(workout: dict) -> bool:
-    return any(v['value'] is not None or v['weight'] is not None for line in workout['lines'] for v in line['values'])
+    return any(is_done(v) for line in workout['lines'] for v in line['values'])
 
 
 def kind_of(workout: dict) -> str:
@@ -93,7 +98,7 @@ class Importer:
             alts = {main['id']: {self.exercise_names[a['exercise']]: a for a in rows if a.get('alternative_of') == main['id']} for main in mains}
             self.slots[workout['id']] = {'mains': mains, 'alts': alts}
             self.signatures[workout['id']] = signature([
-                (self.exercise_names[main['exercise']], main['sets'], main.get('rep_min'), main.get('rep_max'), main.get('superset'),
+                (self.exercise_names[main['exercise']], main['sets'], main.get('rep_min'), main.get('rep_max'), main.get('superset'), main.get('warmup'),
                  [self.exercise_names[a['exercise']] for a in sorted(alts[main['id']].values(), key=lambda a: a['position'])])
                 for main in mains
             ])
@@ -106,14 +111,14 @@ class Importer:
             return found
         first = versions[0] if versions else None
         row = self.api.create('Workout', [{
-            'name': doc['name'], 'focus': doc['focus'], 'kind': kind_of(doc), 'warmup': doc['warmup'], 'notes': '', 'archived': True, 'rev': self.now,
+            'name': doc['name'], 'focus': doc['focus'], 'kind': kind_of(doc), 'warmup': '', 'notes': '', 'archived': True, 'rev': self.now,
             'rest_seconds': 0 if kind_of(doc) == 'rest' else week['rest_seconds'] or DEFAULT_REST_SECONDS,
             'version': max((v.get('version') or 1 for v in versions), default=0) + 1,
             'family': (first.get('family') or first['id']) if first else '',
         }])[0]
         mains = self.api.create('WorkoutExercise', [{
             'workout': row['id'], 'exercise': self.exercise_ids[canonical(line['exercise'], self.aliases).casefold()], 'position': position, 'sets': line['sets'],
-            'rep_min': line['rep_min'] or 0, 'rep_max': line['rep_max'] or 0, 'superset': line['superset'], 'notes': split_notes(line['notes'])[0], 'rev': self.now,
+            'rep_min': line['rep_min'] or 0, 'rep_max': line['rep_max'] or 0, 'superset': line['superset'], 'warmup': line['warmup'], 'notes': split_notes(line['notes'])[0], 'rev': self.now,
         } for position, line in enumerate(doc['lines'])])
         wanted = [(main, position, alt) for main, line in zip(mains, doc['lines']) for position, alt in enumerate(line['alternatives'])]
         alts = self.api.create('WorkoutExercise', [{
