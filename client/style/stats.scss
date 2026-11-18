@@ -1,0 +1,444 @@
+/**
+ * @license
+ * Copyright (C) 2024-2026 Burak Günaydin
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, version 3 of the License.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
+.stats,
+.stats__detail {
+    h3 {
+        margin: 16px 0 8px;
+
+        font-size: 14px;
+        font-weight: 600;
+    }
+
+    > p.muted {
+        margin: 8px 0 14px;
+    }
+
+    &__range {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 8px;
+
+        .tea-input-group {
+            width: auto;
+        }
+    }
+
+    &__tiles {
+        display: grid;
+        gap: 10px;
+        grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+        margin-bottom: 12px;
+
+        .tea-panel.variant-stat {
+            min-width: 0;
+            padding: 12px 14px;
+
+            .children {
+                font-size: 20px;
+            }
+        }
+    }
+
+    &__charts {
+        display: grid;
+        gap: 12px;
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+
+        .tea-panel.variant-card {
+            padding: 12px 14px;
+
+            border-radius: var(--radius-lg);
+            box-shadow: none;
+
+            h3 {
+                margin-top: 0;
+            }
+        }
+
+        .tea-panel .children {
+            display: block;
+            min-width: 0;
+        }
+    }
+
+    &__table {
+        flex: none;
+        margin-top: 12px;
+
+        .tea-table__wrapper {
+            overflow-x: auto;
+        }
+
+        // The header of the table is dark by itself, also in light mode
+        &.tea-table table thead {
+            background: var(--bg-tertiary);
+        }
+
+        td,
+        th {
+            white-space: nowrap;
+        }
+
+        td:last-child {
+            white-space: normal;
+        }
+
+        @media (max-width: 800px) {
+            td,
+            th {
+                padding: 10px 10px;
+            }
+        }
+    }
+
+    &__filters {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 12px;
+
+        .search {
+            flex: 1;
+            max-width: 280px;
+            min-width: 160px;
+        }
+    }
+
+    &__name {
+        padding: 0;
+
+        background: none;
+        border: none;
+        color: var(--accent);
+        cursor: pointer;
+        font: inherit;
+        font-weight: 600;
+        text-align: left;
+
+        &:hover {
+            color: var(--accent-hover);
+        }
+    }
+
+    &__cards {
+        display: grid;
+        gap: 12px;
+        grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+        margin-top: 12px;
+
+        .tea-panel.variant-card {
+            padding: 14px;
+
+            border-radius: var(--radius-lg);
+            box-shadow: none;
+        }
+
+        .tea-panel .children {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            min-width: 0;
+        }
+    }
+
+    &__feed {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        margin-bottom: 16px;
+
+        h2 {
+            margin: 0 0 6px;
+
+            .muted {
+                margin-left: 6px;
+                font-weight: 400;
+            }
+        }
+
+        .link {
+            align-self: flex-start;
+        }
+    }
+
+    &__reps {
+        margin-top: 6px;
+
+        font-size: 13px;
+
+        summary {
+            color: var(--text-secondary);
+            cursor: pointer;
+        }
+
+        ul {
+            margin: 6px 0 0;
+            padding: 0;
+
+            list-style: none;
+        }
+
+        li {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            justify-content: space-between;
+            padding: 3px 0;
+
+            .badge {
+                margin-right: auto;
+            }
+        }
+    }
+
+    &__comments {
+        margin: 0;
+        padding: 0;
+
+        list-style: none;
+
+        li {
+            padding: 6px 0;
+
+            border-bottom: 1px solid var(--border);
+        }
+
+        .muted {
+            margin-right: 8px;
+        }
+    }
+
+    &__detail p {
+        margin: 2px 0;
+    }
+}
+
+.seg {
+    display: flex;
+    overflow-x: auto;
+
+    gap: 2px;
+    margin-bottom: 14px;
+    padding: 3px;
+    width: fit-content;
+    max-width: 100%;
+
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-md);
+
+    &__item {
+        padding: 7px 16px;
+
+        background: none;
+        border: none;
+        border-radius: var(--radius-sm);
+        color: var(--text-secondary);
+        cursor: pointer;
+        font: inherit;
+        white-space: nowrap;
+
+        &:hover {
+            color: var(--text-primary);
+        }
+
+        &--on {
+            background: var(--accent-glow);
+            color: var(--accent);
+        }
+    }
+}
+
+.cell {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+
+    strong {
+        font-weight: 600;
+    }
+}
+
+.delta {
+    color: var(--text-tertiary);
+    font-size: 11px;
+
+    &--up {
+        color: var(--accent);
+    }
+
+    &--down {
+        color: var(--warning);
+    }
+}
+
+.feed__item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+
+    padding: 8px 12px;
+
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    cursor: pointer;
+    font: inherit;
+    font-size: 14px;
+    text-align: left;
+
+    &:hover {
+        border-color: var(--border-strong);
+    }
+
+    .feed__text {
+        flex: 1;
+        min-width: 0;
+    }
+
+    @media (max-width: 800px) {
+        flex-wrap: wrap;
+    }
+}
+
+.records {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin: 8px 0 0;
+
+    &__item {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+        justify-content: space-between;
+
+        padding: 6px 8px;
+
+        background: var(--bg-tertiary);
+        border-radius: var(--radius-sm);
+
+        &--new {
+            box-shadow: inset 2px 0 var(--accent);
+        }
+    }
+
+    dt {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+
+        color: var(--text-secondary);
+        font-size: 12px;
+    }
+
+    dd {
+        display: flex;
+        align-items: baseline;
+        flex-direction: column;
+        margin: 0;
+
+        text-align: right;
+
+        .muted {
+            font-size: 11px;
+        }
+    }
+}
+
+.chart {
+    display: block;
+    height: auto;
+    width: 100%;
+
+    &__grid {
+        stroke: var(--border);
+        stroke-width: 1;
+    }
+
+    &__label {
+        fill: var(--text-secondary);
+        font-size: 12px;
+
+        // The chart is scaled down with the screen, so the text has to start bigger
+        @media (max-width: 600px) {
+            font-size: 16px;
+        }
+    }
+
+    &__bar {
+        fill: var(--accent);
+    }
+
+    &__line {
+        fill: none;
+        stroke-linejoin: round;
+        stroke-width: 2;
+    }
+
+    &__series--0 {
+        color: var(--accent);
+    }
+
+    &__series--1 {
+        color: var(--warning);
+    }
+
+    &__line,
+    &__dot {
+        stroke: currentColor;
+    }
+
+    &__dot {
+        fill: var(--bg-primary);
+        stroke-width: 2;
+    }
+
+    &__legend {
+        display: flex;
+        gap: 14px;
+        margin-top: 4px;
+
+        color: var(--text-secondary);
+        font-size: 12px;
+    }
+
+    &__key::before {
+        display: inline-block;
+        height: 8px;
+        width: 8px;
+        margin-right: 5px;
+
+        background: currentColor;
+        border-radius: 50%;
+        content: '';
+    }
+
+    &__key--0 {
+        &::before {
+            color: var(--accent);
+        }
+    }
+
+    &__key--1 {
+        &::before {
+            color: var(--warning);
+        }
+    }
+}

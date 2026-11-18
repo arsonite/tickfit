@@ -31,10 +31,11 @@ import { useNow } from '@/hooks/useNow';
 
 // Utility
 import { shortDate, today, weekdayName } from '@/tools/dates';
-import { clock, familyOf, interleave, isRunning, suggestNext, transitionBefore } from '@/tools/training';
+import { clock, familyOf, interleave, isOpen, isRunning, suggestNext, trainedHistory, transitionBefore } from '@/tools/training';
+import type { iTrained } from '@/tools/training';
 
 // Types
-import type { iEntry, iExercise, iSet, iSlot, tSetKind, tUnit } from '@/types';
+import type { iSet, iSlot, tSetKind, tUnit } from '@/types';
 
 interface iSessionViewProps {
     data: tData;
@@ -67,7 +68,7 @@ export const SessionView = ({ data, defaultRest, sessionId, vibrate, onBack }: i
     const { entries, sets } = data;
     const started = useRef(false);
 
-    // What was done the last time this workout was done, in whatever version it was
+    // The day this workout was done the last time, in whatever version it was: the exercise that was chosen and the comments carry on
     const last = useMemo(() => {
         const familyOfWorkout = (id: string) => {
             const workout = data.workoutById.get(id);
@@ -78,15 +79,17 @@ export const SessionView = ({ data, defaultRest, sessionId, vibrate, onBack }: i
                   .filter((row) => row.status === 'done' && row.date < session.date && familyOfWorkout(row.workout) === familyOfWorkout(session.workout))
                   .sort((a, b) => b.date.localeCompare(a.date))[0]
             : undefined;
-        return before
-            ? { entries: entries.rows.filter((entry) => entry.session === before.id), sets: sets.rows.filter((set) => set.session === before.id) }
-            : null;
-    }, [data.sessions.rows, data.workoutById, entries.rows, session, sets.rows]);
+        return before ? { entries: entries.rows.filter((entry) => entry.session === before.id) } : null;
+    }, [data.sessions.rows, data.workoutById, entries.rows, session]);
+
+    // The last time each exercise was trained, in any workout or plan: what the sets are compared to and the weights come from
+    const trained = useMemo(() => trainedHistory(data.sessions.rows, entries.rows, sets.rows, (slot) => data.slotById.get(slot)?.exercise), [data.sessions.rows, data.slotById, entries.rows, sets.rows]);
+    const lastRunOf = (exercise?: string): iTrained | undefined => (exercise && session ? trained.get(exercise)?.find((run) => run.date < session.date) : undefined);
 
     // The lines of another version are other rows, so the exercise is what they have in common
     const lastEntryOf = (slot: iSlot) => last?.entries.find((entry) => data.slotById.get(entry.slot)?.exercise === slot.exercise);
 
-    // Opens the day: prepares the lines that are not yet with the values of the last time
+    // Opens the day: prepares the lines that are not yet. Only the weights of the last time are filled in, the reps are for the day.
     useEffect(() => {
         if (started.current || !session || session.status === 'skipped') {
             return;
@@ -108,9 +111,8 @@ export const SessionView = ({ data, defaultRest, sessionId, vibrate, onBack }: i
         );
         sets.addMany(
             created.flatMap((entry) => {
-                const before = lastEntryOf(data.slotById.get(entry.slot) as iSlot);
-                const old = before ? (last?.sets ?? []).filter((set) => set.session_exercise === before.id).sort(byPosition) : [];
-                const count = old.length || data.slotById.get(entry.slot)?.sets || 1;
+                const old = lastRunOf(data.slotById.get(entry.chosen)?.exercise)?.sets ?? [];
+                const count = Math.max(old.length, data.slotById.get(entry.slot)?.sets ?? 1);
                 return Array.from({ length: count }, (_, position) => ({
                     disabled: false,
                     done: false,
@@ -118,7 +120,7 @@ export const SessionView = ({ data, defaultRest, sessionId, vibrate, onBack }: i
                     position,
                     session: session.id,
                     session_exercise: entry.id,
-                    value: old[position]?.value ?? 0,
+                    value: 0,
                     weight: old[position]?.weight ?? 0,
                 }));
             }),
@@ -155,39 +157,58 @@ export const SessionView = ({ data, defaultRest, sessionId, vibrate, onBack }: i
         return result;
     }, [lines]);
 
-    // The sets in the order they are likely done in, and how each is called
-    const { names, next, order } = useMemo(() => {
+    // The sets in the order they are likely done in, how each is called and which block and line of it each belongs to
+    const { blockOf, inBlock, names, next, order } = useMemo(() => {
         const names = new Map<string, string>();
-        const order = blocks.flatMap((block) => {
+        const blockOf = new Map<string, { block: number; line: number }>();
+        const order = blocks.flatMap((block, blockIndex) => {
             const perLine = block.lines.map(({ entry }) => sets.rows.filter((set) => set.session_exercise === entry?.id && !set.disabled).sort(byPosition));
             block.lines.forEach(({ main, entry }, lineIndex) => {
                 const exercise = data.exerciseById.get(data.slotById.get(entry?.chosen ?? '')?.exercise ?? main.exercise)?.name ?? '?';
-                perLine[lineIndex].forEach((set, position) => names.set(set.id, `${exercise} · set ${block.lines.length > 1 ? LETTERS[lineIndex] : ''}${position + 1}`));
+                perLine[lineIndex].forEach((set, position) => {
+                    names.set(set.id, `${exercise} · set ${block.lines.length > 1 ? LETTERS[lineIndex] : ''}${position + 1}`);
+                    blockOf.set(set.id, { block: blockIndex, line: lineIndex });
+                });
             });
             return interleave(perLine);
         });
-        return { names, next: suggestNext(order), order };
+        const next = suggestNext(order);
+        // The next set is of the exercise (or superset) that was just trained: no new exercise to pick, so no transition
+        const lastDone = order.reduce<iSet | undefined>((best, set) => (set.ended_at && set.ended_at >= (best?.ended_at ?? 0) ? set : best), undefined);
+        const inBlock = Boolean(next && lastDone && blockOf.get(next.id)?.block === blockOf.get(lastDone.id)?.block);
+        return { blockOf, inBlock, names, next, order };
     }, [blocks, data.exerciseById, data.slotById, sets.rows]);
+
+    // The next set is where the eyes should be
+    const nextId = next?.id;
+    useEffect(() => {
+        if (training && nextId) {
+            document.querySelector(`[data-set="${nextId}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    }, [nextId, training]);
 
     if (!session) {
         return <div className='empty'>This day does not exist anymore.</div>;
     }
     const workout = data.workoutById.get(session.workout);
 
-    const describeSets = (entry: iEntry, exercise: iExercise | undefined): string => {
-        const before = lastEntryOf(data.slotById.get(entry.slot) as iSlot);
-        if (!before) {
-            return '';
+    // Finishing a set that is followed by a set of the same exercise (or the next round of the superset) starts the rest right away
+    const finishSet = (set: iSet) => {
+        data.training.finishSet(set.id);
+        const here = blockOf.get(set.id);
+        const after = order.slice(order.findIndex((row) => row.id === set.id) + 1).find(isOpen);
+        const there = after && blockOf.get(after.id);
+        if (here && there && here.block === there.block && there.line <= here.line) {
+            data.training.startRest(set.id);
         }
-        const parts = last!.sets
-            .filter((set) => set.session_exercise === before.id && !set.disabled && (set.value || set.weight))
-            .sort(byPosition)
-            .map((set) => {
-                const weighted = exercise?.weighted ?? true;
-                return `${set.value || 0}${weighted ? ` × ${set.weight || 0}` : ''}${set.kind ? ` ${set.kind}` : ''}`;
-            });
-        const other = data.slotById.get(before.chosen)?.exercise !== data.slotById.get(entry.chosen)?.exercise ? data.exerciseById.get(data.slotById.get(before.chosen)?.exercise ?? '')?.name : '';
-        return parts.length ? `${other ? `${other}: ` : ''}${parts.join(' · ')}` : '';
+    };
+
+    // The weight of a set for all sets below it that are not done. A set without a weight takes the one of the last time.
+    const carryWeight = (logged: iSet[], set: iSet, lastSets: iSet[]) => {
+        const index = logged.findIndex((row) => row.id === set.id);
+        const weight = set.weight || lastSets[logged.slice(0, index).filter((row) => !row.disabled).length]?.weight || 0;
+        sets.patch(set.id, { weight });
+        logged.slice(index + 1).filter((row) => !row.disabled && !row.done).forEach((row) => sets.patch(row.id, { weight }));
     };
 
     const toggleDone = () => {
@@ -222,7 +243,9 @@ export const SessionView = ({ data, defaultRest, sessionId, vibrate, onBack }: i
                 {workout?.notes && <p className='muted'>{workout.notes}</p>}
             </header>
 
-            {training && <TrainBar data={data} defaultRest={defaultRest} describe={(set) => names.get(set.id) ?? 'Set'} next={next} session={session} vibrate={vibrate} />}
+            {training && (
+                <TrainBar data={data} defaultRest={defaultRest} describe={(set) => names.get(set.id) ?? 'Set'} inBlock={inBlock} next={next} session={session} vibrate={vibrate} onFinish={finishSet} />
+            )}
 
             {blocks.map((block, blockIndex) => (
                 <div key={block.lines[0].main.id} className='block'>
@@ -238,7 +261,9 @@ export const SessionView = ({ data, defaultRest, sessionId, vibrate, onBack }: i
                             const chosen = data.slotById.get(entry.chosen) ?? main;
                             const exercise = data.exerciseById.get(chosen.exercise);
                             const logged = sets.rows.filter((set) => set.session_exercise === entry.id).sort(byPosition);
-                            const previous = describeSets(entry, exercise);
+                            const previous = lastRunOf(chosen.exercise);
+                            const lastSets = previous?.sets ?? [];
+                            const weighted = Boolean(exercise?.weighted);
                             const prefix = block.lines.length > 1 ? LETTERS[lineIndex] : '';
                             const current = training && logged.some(isRunning);
                             const upNext = training && !current && next?.session_exercise === entry.id;
@@ -265,7 +290,12 @@ export const SessionView = ({ data, defaultRest, sessionId, vibrate, onBack }: i
                                                 <button
                                                     key={choice.id}
                                                     className={`chip ${choice.id === entry.chosen ? 'chip--on' : ''}`}
-                                                    onClick={() => entries.patch(entry.id, { chosen: choice.id })}
+                                                    onClick={() => {
+                                                        entries.patch(entry.id, { chosen: choice.id });
+                                                        // Sets that are still empty take the weights of the last time of the exercise that was picked
+                                                        const picked = lastRunOf(choice.exercise)?.sets ?? [];
+                                                        logged.filter((set) => !set.disabled && !set.done && !set.value).forEach((set, position) => sets.patch(set.id, { weight: picked[position]?.weight ?? 0 }));
+                                                    }}
                                                 >
                                                     {data.exerciseById.get(choice.exercise)?.name}
                                                     {choice.id === main.id ? '' : ' (alt)'}
@@ -274,15 +304,27 @@ export const SessionView = ({ data, defaultRest, sessionId, vibrate, onBack }: i
                                         </div>
                                     )}
 
-                                    {previous && <div className='line__last'>Last: {previous}</div>}
+                                    {previous && <div className='line__last'>Last trained {shortDate(previous.date)}</div>}
 
                                     <div className='sets'>
                                         {logged.map((set) => {
                                             const ran = Boolean(set.started_at && set.ended_at);
+                                            const no = numbers.get(set.id);
+                                            const before = no ? lastSets[no - 1] : undefined;
                                             return (
                                                 <div key={set.id} className='set-row'>
-                                                    <div className={`set ${set.disabled ? 'set--off' : ''} ${set.done ? 'set--done' : ''} ${training && isRunning(set) ? 'set--current' : ''} ${training && next?.id === set.id ? 'set--next' : ''}`}>
-                                                        <span className='set__no'>{set.disabled ? '–' : `${prefix}${numbers.get(set.id)}`}</span>
+                                                    <div
+                                                        data-set={set.id}
+                                                        className={`set ${set.disabled ? 'set--off' : ''} ${set.done ? 'set--done' : ''} ${training && isRunning(set) ? 'set--current' : ''} ${
+                                                            training && next?.id === set.id ? (inBlock ? 'set--follow' : 'set--next') : ''
+                                                        }`}
+                                                    >
+                                                        <span className='set__no'>{set.disabled ? '–' : `${prefix}${no}`}</span>
+                                                        {previous && (
+                                                            <span className='set__last' title={`Last trained ${shortDate(previous.date)}`}>
+                                                                {before ? `${before.value || 0}${weighted && before.weight ? ` × ${before.weight}` : ''}${before.kind ? ` ${before.kind}` : ''}` : '–'}
+                                                            </span>
+                                                        )}
                                                         <label>
                                                             <input
                                                                 type='number'
@@ -294,56 +336,65 @@ export const SessionView = ({ data, defaultRest, sessionId, vibrate, onBack }: i
                                                             />
                                                         </label>
                                                         {exercise?.weighted && (
-                                                            <label>
-                                                                <input
-                                                                    type='number'
-                                                                    inputMode='decimal'
-                                                                    min={0}
-                                                                    step='any'
-                                                                    value={set.weight || ''}
-                                                                    placeholder='kg'
-                                                                    onChange={(event) => sets.patch(set.id, { weight: number(event.target.value) })}
-                                                                />
-                                                            </label>
+                                                            <>
+                                                                <label>
+                                                                    <input
+                                                                        type='number'
+                                                                        inputMode='decimal'
+                                                                        min={0}
+                                                                        step='any'
+                                                                        value={set.weight || ''}
+                                                                        placeholder='kg'
+                                                                        onChange={(event) => sets.patch(set.id, { weight: number(event.target.value) })}
+                                                                    />
+                                                                </label>
+                                                                {logged.length > 1 && !set.disabled && (
+                                                                    <button className='mini' title='This weight for all sets below' onClick={() => carryWeight(logged, set, lastSets)}>
+                                                                        ⤓
+                                                                    </button>
+                                                                )}
+                                                            </>
                                                         )}
-                                                        <button
-                                                            className={`mini ${set.kind ? 'mini--on' : ''}`}
-                                                            title={KIND_TITLE[set.kind ?? '']}
-                                                            onClick={() => sets.patch(set.id, { kind: NEXT_KIND[set.kind ?? ''] })}
-                                                        >
-                                                            {set.kind || '·'}
-                                                        </button>
-                                                        <button
-                                                            className={`mini ${set.disabled ? 'mini--on' : ''}`}
-                                                            title='Skipped on purpose'
-                                                            onClick={() => sets.patch(set.id, { disabled: !set.disabled })}
-                                                        >
-                                                            ✕
-                                                        </button>
-                                                        {!training ? (
+                                                        <div className='set__actions'>
                                                             <button
-                                                                className={`mini ${set.done ? 'mini--ok' : ''}`}
-                                                                title='Done'
-                                                                onClick={() => sets.patch(set.id, { done: !set.done })}
+                                                                className={`mini ${set.kind ? 'mini--on' : ''}`}
+                                                                title={KIND_TITLE[set.kind ?? '']}
+                                                                onClick={() => sets.patch(set.id, { kind: NEXT_KIND[set.kind ?? ''] })}
                                                             >
-                                                                ✓
+                                                                {set.kind || '·'}
                                                             </button>
-                                                        ) : set.disabled ? null : isRunning(set) ? (
-                                                            <button className='mini mini--wide mini--run' title='Finish the set' onClick={() => data.training.finishSet(set.id)}>
-                                                                {clock(now - (set.started_at ?? now))} ✓
+                                                            <button
+                                                                className={`mini ${set.disabled ? 'mini--on' : ''}`}
+                                                                title='Skipped on purpose'
+                                                                onClick={() => sets.patch(set.id, { disabled: !set.disabled })}
+                                                            >
+                                                                ✕
                                                             </button>
-                                                        ) : set.done ? (
-                                                            <button className='mini mini--wide mini--ok' title='Undo' onClick={() => data.training.undoSet(set.id)}>
-                                                                {ran ? clock((set.ended_at ?? 0) - (set.started_at ?? 0)) : ''} ✓
+                                                            {!training ? (
+                                                                <button
+                                                                    className={`mini ${set.done ? 'mini--ok' : ''}`}
+                                                                    title='Done'
+                                                                    onClick={() => sets.patch(set.id, { done: !set.done })}
+                                                                >
+                                                                    ✓
+                                                                </button>
+                                                            ) : set.disabled ? null : isRunning(set) ? (
+                                                                <button className='mini mini--wide mini--run' title='Finish the set' onClick={() => finishSet(set)}>
+                                                                    {clock(now - (set.started_at ?? now))} ✓
+                                                                </button>
+                                                            ) : set.done ? (
+                                                                <button className='mini mini--wide mini--ok' title='Undo' onClick={() => data.training.undoSet(set.id)}>
+                                                                    {ran ? clock((set.ended_at ?? 0) - (set.started_at ?? 0)) : ''} ✓
+                                                                </button>
+                                                            ) : (
+                                                                <button className='mini mini--wide mini--start' title='Start this set' onClick={() => data.training.startSet(set.id)}>
+                                                                    ▶
+                                                                </button>
+                                                            )}
+                                                            <button className='mini' title='Remove set' onClick={() => sets.remove([set.id])}>
+                                                                −
                                                             </button>
-                                                        ) : (
-                                                            <button className='mini mini--wide mini--start' title='Start this set' onClick={() => data.training.startSet(set.id)}>
-                                                                ▶
-                                                            </button>
-                                                        )}
-                                                        <button className='mini' title='Remove set' onClick={() => sets.remove([set.id])}>
-                                                            −
-                                                        </button>
+                                                        </div>
                                                     </div>
                                                     {ran && (
                                                         <div className='set__times'>
@@ -366,7 +417,7 @@ export const SessionView = ({ data, defaultRest, sessionId, vibrate, onBack }: i
                                                     position: (prev?.position ?? -1) + 1,
                                                     session: session.id,
                                                     session_exercise: entry.id,
-                                                    value: prev?.value ?? 0,
+                                                    value: 0,
                                                     weight: prev?.weight ?? 0,
                                                 });
                                             }}

@@ -52,11 +52,12 @@
 -   **Shift by drag and drop**: drag a day (⠿ handle, works by touch too) onto another day to move or swap it, or onto the ‹ / › arrows to move it a week. Nothing realigns automatically; days can also be moved a day earlier or later, skipped or removed from the menu
 -   **Settings** (device-local): light mode, accent colour, default rest, vibration, keep screen awake, last-week row, sync and clean-up of old auto-planned days
 -   **Training log**: reps (or minutes), kg, drop/partial/assisted sets, a comment per exercise (rack spot, seat height ...) and notes per day
--   **Last time on top**: each exercise shows what you did in the last completed session of the same workout, and starts with those values
+-   **Last trained**: each exercise shows, per set, what you did the last time *that exercise* was trained (any workout, plan or version, matched set by set) as a read-only row. Only the kg is prefilled (editable); reps stay empty. The ⤓ button next to a kg field applies it to all sets below that are not done yet
+-   **Statistics**: week by week (sessions, sets, reps, volume, time, change to the week before), PRs per exercise (heaviest, set volume, estimated 1RM, longest) with a feed of the last 30 days, per exercise (progression chart) and per plan. Per-plan numbers come from the workouts of the plan, so a workout in several plans counts for each
 
-**Plan mode and train mode**: a session opens in plan mode (edit the workout, fill in values afterwards). "Start training" switches to train mode with a clock that runs from a start time kept on the server (`Session.started_at`, unix ms), so a reload or another device recalculates it. The bar is green while a set runs ("Finish set") and purple in between: the transition, which is measured too, so you can pick any exercise and set freely (▶ on every set, or "Next" for the suggestion, e.g. when the gym is full). "Start rest" is always offered after a set and counts down the default rest. Supersets are framed and labelled A1/B1 ..., done in turns. Finished sets show their transition, set and rest time. Start and end of every set, drop set, partial and rest are stored on the `SetLog` rows (`started_at`, `ended_at`, `rest_started_at`, `rest_ended_at`) for later stats, only the clocks are shown.
+**Plan mode and train mode**: a session opens in plan mode (edit the workout, fill in values afterwards). "Start training" switches to train mode with a clock that runs from a start time kept on the server (`Session.started_at`, unix ms), so a reload or another device recalculates it. The bar is green while a set runs ("Finish set") and purple between unrelated exercises: the transition, which is measured too, so you can pick any exercise and set freely (▶ on every set, or "Next" for the suggestion, e.g. when the gym is full). Inside an exercise or superset there is no transition: finishing a set starts the rest by itself and moves to the next set (dashed bar); in a superset the rest starts after the last exercise of the round, "Start rest" is always offered. After the last set of an exercise the rest stays manual. Supersets are framed and labelled A1/B1 ..., done in turns. Finished sets show their transition, set and rest time. Start and end of every set, drop set, partial and rest are stored on the `SetLog` rows (`started_at`, `ended_at`, `rest_started_at`, `rest_ended_at`) for later stats, only the clocks are shown.
 
-**Workout versions**: editing a workout that was trained already does not change the past. It becomes a new version (same `family`), the old one is archived and keeps its sessions; planned sessions and plan days move to the new version. "Last time" and the stats are looked up by family.
+**Workout versions**: editing a workout that was trained already does not change the past. It becomes a new version (same `family`), the old one is archived and keeps its sessions; planned sessions and plan days move to the new version. "Last trained" is looked up by exercise, and the stats by family.
 
 **Offline first**: everything is read and written on the device (IndexedDB). Without backend or internet the app keeps working and shows "Offline, N changes kept on this device". As soon as the backend is reachable again it syncs by itself (on open, on reconnect, on focus, and every 15 s while offline), then pushes each change right away. Sync is `@teatype/sync` in `auto` mode; conflicts are last write wins.
 
@@ -92,17 +93,25 @@ An empty week offers "Add the example plan", the full-body plan of the old sprea
 
 ## Importing old sheets
 
-`scripts/data/` brings the old spreadsheets in. The server has to run. Only `openpyxl` is needed (`pip install -r scripts/data/requirements.txt`), the base URL comes from `TICKFIT_URL` (default `http://127.0.0.1:$TICKFIT_PORT`), and every script has `--dry-run` (writes nothing) and `--url`.
+`scripts/data/` brings the old spreadsheets in (the folders `2025/` and `2026/` of one workbook per week). The server has to run. The base URL comes from `TICKFIT_URL` (default `http://127.0.0.1:$TICKFIT_PORT`), and every script has `--dry-run` (writes nothing) and `--url`. `parse_sheets.py` needs `openpyxl` (`pip install -r scripts/data/requirements.txt`, or `pip install --target <dir> openpyxl` and `PYTHONPATH=<dir>` if the venv is not yours to change).
 
 ```sh
 cd scripts/data
 python download_sheets.py <link-or-id> ...      # link-shared Google Sheets -> sheets/*.xlsx (--list, --folder <id> --api-key <key>)
-python parse_sheets.py                          # sheets/*.xlsx -> parsed/*.json, one per week (--dump to see the raw cells, --year)
+python parse_sheets.py ~/2025 ~/2026            # xlsx files or folders -> parsed/*.json, one per week (--dump to see the raw cells, --out, --year)
 python seed_exercises.py                        # the exercise catalogue: exercises.json plus every exercise found in parsed/
-python import_history.py                        # workouts (as versions), sessions, sets, and a plan if there is none
+python import_history.py                        # workouts, sessions, sets and plans, see below
 ```
 
-`aliases.json` maps names used in the sheets to the names of the catalogue. The import is repeatable: workouts are reused when their lines match, a changed workout becomes a new version, and a date that has a session already is skipped. The parser was written against the empty template, so expect to adjust it (and `aliases.json`) on the first real files; `parse_sheets.py --dump` shows what it reads. Any other source (e.g. a PDF reader) can write the same week JSON into `parsed/`.
+`aliases.json` maps names used in the sheets to the names of the catalogue; `exercises.json` is the catalogue (unit, weighted, picture). Both seeding and import check by name first and only create what is missing, so existing exercises, workouts, plans and sessions stay untouched and every script can be run again.
+
+What the import creates:
+
+-   **Workouts** are reused when their lines match, a changed one becomes a new version of the family. All imported ones are **archived**, so the live workouts and the active plan stay as they are. Warm-ups become exercise lines
+-   **Plans**: one **inactive** plan per set of workouts that was trained for some weeks, named `<label> (KW<week> <year>)` and laid out like its fullest week. A plan whose label or name exists is not created again (this protects the active one)
+-   **Sessions and sets**: a day counts when sets have reps (or an X). The sheets paste last week's weights into the new week, so weight-only or 0-rep sets are not training. A date that has a session is skipped
+
+The parser warns about sheets it had to place on another day (a sheet whose name matches no day of the week) and skips non-workout sheets (`AUX`). Check the warnings and `--dry-run` before the real run, any other source (e.g. a PDF reader) can write the same week JSON into `parsed/`.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 

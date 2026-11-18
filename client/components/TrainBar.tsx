@@ -37,16 +37,22 @@ interface iTrainBarProps {
 
     /** What a set is called, e.g. "Standing Calf Raises · set 2" */
     describe: (set: iSet) => string;
+    /** The next set is of the exercise (or superset) that was just trained: no new exercise to pick, so no transition */
+    inBlock: boolean;
     /** The set that is likely to come next, any other can be started in the list as well */
     next?: iSet;
+
+    /** Finishes the set (and starts the rest by itself when the exercise goes on) */
+    onFinish: (set: iSet) => void;
 }
 
 /**
  * The clock of the training and what is going on. While a set runs the bar is green. As soon as it is over the
  * lifter is in the transition (purple): picking the next exercise, maybe resting. That is timed as well, and the rest
- * is started by hand because only the lifter knows when a set is over.
+ * is started by hand because only the lifter knows when a set is over. Inside an exercise or a superset there is nothing
+ * to pick: the rest starts by itself and the bar keeps the colour of the exercise.
  */
-export const TrainBar = ({ data, defaultRest, describe, next, session, vibrate }: iTrainBarProps) => {
+export const TrainBar = ({ data, defaultRest, describe, inBlock, next, onFinish, session, vibrate }: iTrainBarProps) => {
     const now = useNow(true);
     const workout = data.workoutById.get(session.workout);
     const target = (workout?.rest_seconds || defaultRest) * 1000;
@@ -72,7 +78,7 @@ export const TrainBar = ({ data, defaultRest, describe, next, session, vibrate }
     }, [over, resting, vibrate]);
 
     return (
-        <div className={`trainbar ${running ? 'trainbar--set' : 'trainbar--transition'}`}>
+        <div className={`trainbar ${running ? 'trainbar--set' : inBlock ? 'trainbar--rest' : 'trainbar--transition'}`}>
             <div className='trainbar__clock' title='Training time'>
                 {clock(now - (session.started_at ?? now))}
             </div>
@@ -83,15 +89,17 @@ export const TrainBar = ({ data, defaultRest, describe, next, session, vibrate }
                         <span className='trainbar__label'>Set · {clock(now - (running.started_at ?? now))}</span>
                         <span className='trainbar__what'>{describe(running)}</span>
                     </div>
-                    <button className='trainbar__go' onClick={() => data.training.finishSet(running.id)}>
+                    <button className='trainbar__go' onClick={() => onFinish(running)}>
                         Finish set ✓
                     </button>
                 </>
             ) : (
                 <>
                     <div className='trainbar__phase'>
-                        <span className='trainbar__label'>Transition · {clock(now - transitionStart)}</span>
-                        <span className='trainbar__what'>{next ? 'Pick the next set below or start the suggested one' : 'Nothing open anymore'}</span>
+                        <span className='trainbar__label'>
+                            {inBlock ? 'Next set' : 'Transition'} · {clock(now - transitionStart)}
+                        </span>
+                        <span className='trainbar__what'>{next ? (inBlock ? describe(next) : 'Pick the next set below or start the suggested one') : 'Nothing open anymore'}</span>
                     </div>
 
                     {resting ? (

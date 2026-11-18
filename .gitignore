@@ -171,3 +171,4 @@ dist-ssr
 */bin/
 */dist/
 *venv/
+/scripts/data/parsed

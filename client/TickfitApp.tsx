@@ -28,6 +28,7 @@ import { ExercisesView } from '@/components/ExercisesView';
 import { PlansView } from '@/components/PlansView';
 import { SessionView } from '@/components/SessionView';
 import { SettingsView } from '@/components/SettingsView';
+import { StatsView } from '@/components/StatsView';
 import { TrainBanner } from '@/components/TrainBar';
 import { WeekView } from '@/components/WeekView';
 import { WorkoutsView } from '@/components/WorkoutsView';
@@ -41,7 +42,7 @@ import { useWakeLock } from '@/hooks/useWakeLock';
 // Utility
 import { localStore } from '@/sync';
 
-type tView = 'exercises' | 'plans' | 'week' | 'workouts';
+type tView = 'exercises' | 'plans' | 'stats' | 'week' | 'workouts';
 
 const SIDEBAR_KEY = 'tickfit-sidebar';
 
@@ -50,6 +51,7 @@ const NAV: { id: tView; label: string }[] = [
     { id: 'workouts', label: 'Workouts' },
     { id: 'exercises', label: 'Exercises' },
     { id: 'plans', label: 'Plans' },
+    { id: 'stats', label: 'Statistics' },
 ];
 
 const Tickfit = ({ stored }: { stored: tStored }) => {
@@ -153,6 +155,7 @@ const Tickfit = ({ stored }: { stored: tStored }) => {
                         {view === 'exercises' && <ExercisesView data={data} />}
                         {view === 'workouts' && <WorkoutsView data={data} />}
                         {view === 'plans' && <PlansView data={data} />}
+                        {view === 'stats' && <StatsView data={data} />}
                     </>
                 )}
             </main>

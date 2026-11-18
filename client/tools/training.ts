@@ -16,7 +16,7 @@
  */
 
 // Types
-import type { iSession, iSet, iWorkout } from '@/types';
+import type { iEntry, iSession, iSet, iWorkout } from '@/types';
 
 /** All versions of a workout share the id of the first one */
 const familyOf = (workout: iWorkout): string => workout.family || workout.id;
@@ -32,6 +32,8 @@ const clock = (ms: number): string => {
 
 const isRunning = (set: iSet): boolean => Boolean(set.started_at) && !set.ended_at;
 const hasOpenRest = (set: iSet): boolean => Boolean(set.rest_started_at) && !set.rest_ended_at;
+/** Not done, not running and not skipped: still to do */
+const isOpen = (set: iSet): boolean => !set.disabled && !set.done && !set.started_at;
 
 /** A day that was trained (or is being) is history: it stays where it is and what was logged stays with it */
 const isTrained = (session?: iSession): boolean => Boolean(session && (session.status === 'done' || session.started_at));
@@ -47,9 +49,39 @@ const interleave = (lines: iSet[][]): iSet[] => {
  * there is none after it the first open one before. Only a suggestion, any set can be started.
  */
 const suggestNext = (order: iSet[]): iSet | undefined => {
-    const open = (set: iSet) => !set.disabled && !set.done && !set.started_at;
     const lastDone = order.reduce((best, set, index) => (set.ended_at && set.ended_at >= (order[best]?.ended_at ?? 0) ? index : best), -1);
-    return order.slice(lastDone + 1).find(open) ?? order.find(open);
+    return order.slice(lastDone + 1).find(isOpen) ?? order.find(isOpen);
+};
+
+/** A time an exercise was trained: the sets that were done, in the order of the sets */
+interface iTrained {
+    date: string;
+    sets: iSet[];
+}
+
+/**
+ * Every time an exercise was trained, newest first, whatever workout, plan or version it was part of (an alternative counts
+ * for the exercise that was chosen). Only days that are done count and only the sets that were done.
+ */
+const trainedHistory = (sessions: iSession[], entries: iEntry[], sets: iSet[], exerciseOf: (slot: string) => string | undefined): Map<string, iTrained[]> => {
+    const done = new Map(sessions.filter((session) => session.status === 'done').map((session) => [session.id, session]));
+    const setsOf = new Map<string, iSet[]>();
+    sets.forEach((set) => {
+        if (set.done && !set.disabled && (set.value || set.weight) && done.has(set.session)) {
+            setsOf.set(set.session_exercise, [...(setsOf.get(set.session_exercise) ?? []), set]);
+        }
+    });
+    const history = new Map<string, iTrained[]>();
+    entries.forEach((entry) => {
+        const session = done.get(entry.session);
+        const rows = setsOf.get(entry.id);
+        const exercise = exerciseOf(entry.chosen);
+        if (session && rows && exercise) {
+            history.set(exercise, [...(history.get(exercise) ?? []), { date: session.date, sets: rows.sort((a, b) => a.position - b.position) }]);
+        }
+    });
+    history.forEach((runs) => runs.sort((a, b) => b.date.localeCompare(a.date)));
+    return history;
 };
 
 /** The time between the end of the set before and the start of this set: picking the next exercise, the rest included */
@@ -62,4 +94,5 @@ const transitionBefore = (set: iSet, all: iSet[], sessionStart: number): number 
     return Math.max(0, start - previous);
 };
 
-export { clock, familyOf, hasOpenRest, interleave, isRunning, isTrained, suggestNext, transitionBefore };
+export { clock, familyOf, hasOpenRest, interleave, isOpen, isRunning, isTrained, suggestNext, trainedHistory, transitionBefore };
+export type { iTrained };

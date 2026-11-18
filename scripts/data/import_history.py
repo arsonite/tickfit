@@ -20,11 +20,14 @@ session with its sets. Run it again after parsing more sheets, what is there alr
 
     import_history.py [--dry-run] [--url http://127.0.0.1:8767] [--parsed parsed/]
 
-- A workout is reused when its lines match one of the app (same exercises, sets, reps, supersets, alternatives). A changed one
-  becomes a new version of the same family, the way the app does it when a trained workout is edited. Versions that no live workout
-  of that name has are archived, the newest of a name that has none stays live.
-- A day without any numbers is not imported, a rest day is only imported when something was done. A date that has a session already
-  (also a planned one of the app) is skipped and reported.
+- A workout is reused when its lines match one of the app (same exercises, sets, reps, supersets, warm-up lines, alternatives). A
+  changed one becomes a new version of the same family, the way the app does it when a trained workout is edited. Everything that is
+  imported is archived, the live workouts and the active plan of the app stay as they are.
+- Plans: one inactive plan for every set of workouts that was trained for some weeks ("<label> (KW03 2026)", laid out like its first
+  week). Not created when a plan of that label or name exists (the active plan of the app, a second run).
+- A day counts when a set has reps (or an X), the sheets paste last week's weights into the new week and those are no training. A
+  day without any is not imported, a rest day is only imported when something was done. A date that has a session already (also a
+  planned one of the app) is skipped.
 - The clock of the old weeks was never tracked, started_at/finished_at and the set times stay 0.
 - Open the app afterwards, the sync pulls everything.
 """
@@ -82,7 +85,7 @@ class Importer:
         self.versions: dict = {}   # name casefold -> [workout rows, oldest first]
         self.slots: dict = {}      # workout id -> {'mains': [rows], 'alts': {main id: {name casefold: row}}}
         self.signatures: dict = {}  # workout id -> signature
-        self.counts = {'workouts': 0, 'sessions': 0, 'sets': 0, 'skipped': 0}
+        self.counts = {'workouts': 0, 'plans': 0, 'sessions': 0, 'sets': 0, 'skipped': 0}
 
     def load(self, weeks: list):
         self.exercise_ids = ensure_exercises(self.api, weeks, self.aliases)
@@ -142,7 +145,7 @@ class Importer:
                 continue
             if doc['date'] in taken:
                 self.counts['skipped'] += 1
-                if taken[doc['date']] != 'imported':
+                if taken[doc['date']] not in ('imported', 'done'):
                     print(f'skip {doc["date"]} {doc["name"]}: the day has a {taken[doc["date"]]} session already')
                 continue
             workout = self.workout_for(week, doc)
@@ -170,7 +173,7 @@ class Importer:
         } for session, main, chosen, line in wanted])
         sets = []
         for entry, (session, _, _, line) in zip(entries, wanted):
-            for position, value in enumerate(v for v in line['values'] if v['disabled'] or v['value'] is not None or v['weight'] is not None):
+            for position, value in enumerate(v for v in line['values'] if is_done(v)):
                 sets.append({
                     'session': session['id'], 'session_exercise': entry['id'], 'position': position, 'value': value['value'] or 0, 'weight': value['weight'] or 0,
                     'kind': value['kind'], 'disabled': value['disabled'], 'done': not value['disabled'], 'started_at': 0, 'ended_at': 0,
@@ -178,22 +181,46 @@ class Importer:
                 })
         self.api.create('SetLog', sets)
         self.counts['sessions'], self.counts['sets'] = len(sessions), len(sets)
-        self.finish(weeks)
-        print(f'{self.counts["workouts"]} workout versions, {self.counts["sessions"]} sessions and {self.counts["sets"]} sets added, {self.counts["skipped"]} days were there already')
+        self.plans(weeks)
+        print(f'{self.counts["workouts"]} workout versions, {self.counts["plans"]} plans, {self.counts["sessions"]} sessions and {self.counts["sets"]} sets added, {self.counts["skipped"]} days were there already')
 
-    def finish(self, weeks: list):
-        """Makes the newest version of every name without a live one live, and adds the plan of the first week when the app has none."""
-        for versions in self.versions.values():
-            if not any(not row.get('archived') for row in versions):
-                self.api.patch('Workout', versions[-1]['id'], {'archived': False, 'rev': self.now})
-                versions[-1]['archived'] = False
-        if not weeks or self.api.all('Plan'):
-            return
-        plan = self.api.create('Plan', [{'name': weeks[0]['plan'], 'active': True, 'notes': '', 'rev': self.now}])[0]
-        live = {name: next(row for row in reversed(rows) if not row.get('archived')) for name, rows in self.versions.items() if any(not row.get('archived') for row in rows)}
-        days = [live[day['workout'].casefold()] for day in weeks[0]['days'] if day['workout'] and day['workout'].casefold() in live]
-        self.api.create('PlanDay', [{'plan': plan['id'], 'position': position, 'workout': row['id'], 'rev': self.now} for position, row in enumerate(days)])
-        print(f'plan "{plan["name"]}" added with {len(days)} days')
+    def plans(self, weeks: list):
+        """One inactive plan for every set of workouts that was trained for some weeks (same label, same workouts, the days are the first week's
+        as the weeks rotate when a day is shifted). The plans of the app (same name or same label) are left alone, the live workouts too."""
+        existing = {plan['name'].casefold() for plan in self.api.all('Plan')}
+        def worked(week: dict) -> set:
+            return {day['workout'].casefold() for day in week['days'] if day['workout'] and not day['workout'].casefold().startswith('rest')}
+
+        groups: list = []  # [label, workout names, first week, fullest week]
+        for week in weeks:
+            names = worked(week)
+            group = next((g for g in groups if g[0] == week['plan'] and names & g[1] and len(names & g[1]) >= min(len(names), len(g[1])) - 1), None)  # a week with a day missing or shifted away is still the same plan
+            if not group:
+                groups.append([week['plan'], names, week, week])
+                continue
+            group[1] |= names
+            if len(names) > len(worked(group[3])):
+                group[3] = week
+        added = 0
+        for label, _, first, week in groups:
+            name = f'{label} (KW{first["week"]:02d} {first["year"]})'
+            if label.casefold() in existing or name.casefold() in existing:
+                continue
+            days = []
+            for position, day in enumerate(week['days']):
+                doc = next((d for d in week['workouts'] if d['date'] == day['date']), None)
+                row = self.workout_for(week, doc) if doc else None
+                row = row or next(iter(reversed(self.versions.get((day['workout'] or '').casefold(), []))), None)
+                if row:
+                    days.append({'position': position, 'workout': row['id']})
+            if not days:
+                continue
+            plan = self.api.create('Plan', [{'name': name, 'active': False, 'notes': '', 'rev': self.now}])[0]
+            self.api.create('PlanDay', [{'plan': plan['id'], **day, 'rev': self.now} for day in days])
+            existing.add(name.casefold())
+            added += 1
+            print(f'+ plan "{name}" with {len(days)} days')
+        self.counts['plans'] = added
 
 
 def main():
