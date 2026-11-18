@@ -63,7 +63,7 @@ const Tickfit = ({ stored }: { stored: tStored }) => {
     const [pinned, setPinned] = useState(() => localStorage.getItem(SIDEBAR_KEY) !== 'closed');
     const [sheet, setSheet] = useState(false);
     const [settingsOpen, setSettingsOpen] = useState(false);
-    const { change, settings } = useSettings();
+    const { apply, change, settings } = useSettings();
 
     useWakeLock(settings.keepAwake && Boolean(data.training.session));
 
@@ -145,7 +145,7 @@ const Tickfit = ({ stored }: { stored: tStored }) => {
                     />
                 )}
                 {data.load === 'loading' && !settingsOpen && <div className='empty'>Loading…</div>}
-                {settingsOpen && <SettingsView data={data} settings={settings} onChange={change} onClose={() => setSettingsOpen(false)} />}
+                {settingsOpen && <SettingsView data={data} settings={settings} toast={toast} onApply={apply} onChange={change} onClose={() => setSettingsOpen(false)} />}
                 {data.load === 'ready' && !settingsOpen && (
                     <>
                         {view === 'week' && sessionId && (

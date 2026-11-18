@@ -16,25 +16,35 @@
  */
 
 // TeaType
-import { TeaButton, TeaSettingsPage, useConfirm } from '@teatype/components';
+import { TeaButton, TeaSettingsPage, useConfirm, type iUseTeaToastReturn } from '@teatype/components';
 import type { iTeaSettingsCategory } from '@teatype/components';
 import { ChecklistIcon, ContrastIcon, DatabaseIcon, TableIcon } from '@teatype/icons';
+import { downloadFile, pickTextFile } from '@teatype/toolkit/file';
 
 // Hooks
 import type { iSettings } from '@/hooks/useSettings';
 import { DEFAULT_ACCENT } from '@/hooks/useSettings';
 import type { tData } from '@/hooks/useTickfit';
 
+// Utility
+import { BACKUP_TYPE, EXPORT_TYPE, backupFile, exportFile, logCsv, parseTables } from '@/tools/transfer';
+import type { tExportKind } from '@/tools/transfer';
+
+const SETTINGS_TYPE = 'tickfit-settings';
+const stamp = () => new Date().toISOString().slice(0, 10);
+
 interface iSettingsViewProps {
     data: tData;
     settings: iSettings;
+    toast: iUseTeaToastReturn;
 
+    onApply: (settings: unknown) => boolean;
     onChange: <K extends keyof iSettings>(key: K, value: iSettings[K]) => void;
     onClose: () => void;
 }
 
 /** The settings of the app, described for the TeaSettingsPage. They are kept on this device only. */
-export const SettingsView = ({ data, onChange, onClose, settings }: iSettingsViewProps) => {
+export const SettingsView = ({ data, onApply, onChange, onClose, settings, toast }: iSettingsViewProps) => {
     const confirm = useConfirm();
 
     const clearAutoPlanned = async () => {
@@ -66,6 +76,69 @@ export const SettingsView = ({ data, onChange, onClose, settings }: iSettingsVie
         if (ok) {
             await data.sync.resetLocal();
         }
+    };
+
+    const download = (content: string, name: string, message: string, mimeType?: string) => {
+        downloadFile(content, `tickfit-${name}`, mimeType);
+        toast.success(message);
+    };
+
+    const exportKind = (kind: tExportKind, name: string, message: string) => download(exportFile(kind, data.snapshot()), `${name}-${stamp()}.json`, message);
+
+    const restore = async () => {
+        const ok = await confirm({
+            title: 'Restore backup',
+            message: 'Everything here, the exercises, workouts, plans and the whole log, is replaced with the contents of the backup file, and so is what is on the server after the next sync. Settings of this device are replaced as well. This cannot be undone.',
+            confirmText: 'Choose file',
+            variant: 'danger',
+        });
+        const json = ok ? await pickTextFile() : null;
+        if (json === null) {
+            return;
+        }
+        const tables = parseTables(json, [BACKUP_TYPE], true);
+        if (!tables) {
+            toast.error('Not a Tickfit backup file');
+            return;
+        }
+        data.restoreTables(tables);
+        try {
+            onApply(JSON.parse(json).settings);
+        } catch {
+            // The settings are optional
+        }
+        toast.success(`Backup restored, ${Object.values(tables).reduce((sum, rows) => sum + rows.length, 0)} rows`);
+    };
+
+    const importData = async () => {
+        const json = await pickTextFile();
+        if (json === null) {
+            return;
+        }
+        const tables = parseTables(json, [EXPORT_TYPE, BACKUP_TYPE]);
+        if (!tables) {
+            toast.error('Not a Tickfit export file');
+            return;
+        }
+        const count = data.importTables(tables);
+        toast.success(count ? `${count} row${count === 1 ? '' : 's'} imported` : 'Nothing new in this file');
+    };
+
+    const importSettings = async () => {
+        const json = await pickTextFile();
+        if (json === null) {
+            return;
+        }
+        try {
+            const file = JSON.parse(json);
+            if ([SETTINGS_TYPE, BACKUP_TYPE].includes(file?.type) && onApply(file.settings)) {
+                toast.success('Settings imported');
+                return;
+            }
+        } catch {
+            // Reported below
+        }
+        toast.error('Not a Tickfit settings file');
     };
 
     const categories: iTeaSettingsCategory[] = [
@@ -173,6 +246,76 @@ export const SettingsView = ({ data, onChange, onClose, settings }: iSettingsVie
                             label: 'Clear local data',
                             description: 'Deletes the copy on this device and fetches everything from the server again. Changes that are not on the server yet are sent first.',
                             control: { type: 'button', label: 'Clear', theme: 'danger', onClick: () => void refetch() },
+                        },
+                    ],
+                },
+                {
+                    id: 'backup',
+                    title: 'Backup',
+                    description: 'One file with all exercises, workouts, plans and the whole log, and the settings of this device.',
+                    items: [
+                        {
+                            id: 'backup-export',
+                            label: 'Full backup',
+                            control: { type: 'button', label: 'Download', onClick: () => download(backupFile(data.snapshot(), settings), `backup-${stamp()}.json`, 'Backup downloaded') },
+                        },
+                        {
+                            id: 'backup-restore',
+                            label: 'Restore backup',
+                            description: 'Replaces everything here with the contents of a backup file.',
+                            control: { type: 'button', label: 'Restore', theme: 'danger', onClick: () => void restore() },
+                        },
+                    ],
+                },
+                {
+                    id: 'export',
+                    title: 'Export',
+                    items: [
+                        {
+                            id: 'export-exercises',
+                            label: 'Exercises',
+                            control: { type: 'button', label: 'Export', onClick: () => exportKind('exercises', 'exercises', 'Exercises exported') },
+                        },
+                        {
+                            id: 'export-plans',
+                            label: 'Workouts and plans',
+                            description: 'With the exercises they use.',
+                            control: { type: 'button', label: 'Export', onClick: () => exportKind('plans', 'plans', 'Workouts and plans exported') },
+                        },
+                        {
+                            id: 'export-log',
+                            label: 'Training log',
+                            description: 'Every day with its sets and times, as JSON that can be imported again, or one line per finished set for a spreadsheet.',
+                            control: {
+                                type: 'buttons',
+                                buttons: [
+                                    { id: 'json', label: 'JSON', onClick: () => exportKind('log', 'log', 'Training log exported') },
+                                    { id: 'csv', label: 'CSV', onClick: () => download(logCsv(data.snapshot()), `log-${stamp()}.csv`, 'Training log exported', 'text/csv') },
+                                ],
+                            },
+                        },
+                        {
+                            id: 'export-settings',
+                            label: 'Settings',
+                            description: 'Of this device.',
+                            control: { type: 'button', label: 'Export', onClick: () => download(JSON.stringify({ type: SETTINGS_TYPE, version: 1, settings }, null, 2), `settings-${stamp()}.json`, 'Settings exported') },
+                        },
+                    ],
+                },
+                {
+                    id: 'import',
+                    title: 'Import',
+                    items: [
+                        {
+                            id: 'import-data',
+                            label: 'Exercises, workouts, plans and log',
+                            description: 'A file of an export. What is here already (same id) is skipped, an exercise with the name of one here is not added twice.',
+                            control: { type: 'button', label: 'Import', onClick: () => void importData() },
+                        },
+                        {
+                            id: 'import-settings',
+                            label: 'Settings',
+                            control: { type: 'button', label: 'Import', onClick: () => void importSettings() },
                         },
                     ],
                 },

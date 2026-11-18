@@ -36,6 +36,8 @@ interface iTable<T extends iRow> {
     /** Takes what a sync ended with, rows that were changed meanwhile stay as they are */
     merge: (snapshot: T[], result: T[]) => void;
     patch: (id: string, data: Partial<T>) => void;
+    /** Swaps all rows for these, the rows keep their ids */
+    replace: (list: T[]) => void;
     remove: (ids: string[]) => void;
 }
 
@@ -75,9 +77,11 @@ const useTable = <T extends iRow>(initial: T[]): iTable<T> => {
         [update],
     );
 
+    const replace = useCallback((list: T[]) => update(() => list), [update]);
+
     const current = useCallback(() => latest.current, []);
 
-    return useMemo(() => ({ rows, add, addMany, current, merge, patch, remove }), [rows, add, addMany, current, merge, patch, remove]);
+    return useMemo(() => ({ rows, add, addMany, current, merge, patch, remove, replace }), [rows, add, addMany, current, merge, patch, remove, replace]);
 };
 
 export type { iTable };

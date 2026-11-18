@@ -39,17 +39,18 @@ interface iSettings {
 
 const DEFAULTS: iSettings = { accentColor: DEFAULT_ACCENT, defaultRest: 90, keepAwake: true, lightMode: false, showLastWeek: true, vibrate: true };
 
+const sanitize = (stored: Partial<iSettings>): iSettings => ({
+    accentColor: sanitizeAccent(stored.accentColor, DEFAULT_ACCENT),
+    defaultRest: Number.isFinite(stored.defaultRest) ? Math.min(600, Math.max(0, stored.defaultRest as number)) : DEFAULTS.defaultRest,
+    keepAwake: stored.keepAwake ?? DEFAULTS.keepAwake,
+    lightMode: stored.lightMode ?? DEFAULTS.lightMode,
+    showLastWeek: stored.showLastWeek ?? DEFAULTS.showLastWeek,
+    vibrate: stored.vibrate ?? DEFAULTS.vibrate,
+});
+
 const read = (): iSettings => {
     try {
-        const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}') as Partial<iSettings>;
-        return {
-            accentColor: sanitizeAccent(stored.accentColor, DEFAULT_ACCENT),
-            defaultRest: Number.isFinite(stored.defaultRest) ? Math.min(600, Math.max(0, stored.defaultRest as number)) : DEFAULTS.defaultRest,
-            keepAwake: stored.keepAwake ?? DEFAULTS.keepAwake,
-            lightMode: stored.lightMode ?? DEFAULTS.lightMode,
-            showLastWeek: stored.showLastWeek ?? DEFAULTS.showLastWeek,
-            vibrate: stored.vibrate ?? DEFAULTS.vibrate,
-        };
+        return sanitize(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}'));
     } catch {
         return DEFAULTS;
     }
@@ -68,7 +69,16 @@ const useSettings = () => {
 
     const change = useCallback(<K extends keyof iSettings>(key: K, value: iSettings[K]) => setSettings((previous) => ({ ...previous, [key]: value })), []);
 
-    return { change, settings };
+    /** Takes settings from a file, false if it is not an object of settings */
+    const apply = useCallback((source: unknown): boolean => {
+        if (typeof source !== 'object' || source === null || !Object.keys(DEFAULTS).some((key) => key in source)) {
+            return false;
+        }
+        setSettings(sanitize(source));
+        return true;
+    }, []);
+
+    return { apply, change, settings };
 };
 
 export type { iSettings };

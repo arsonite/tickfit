@@ -45,6 +45,8 @@ import {
 import { today, weekDays } from '@/tools/dates';
 import { EXERCISES, PLAN, WORKOUTS } from '@/tools/seed';
 import { familyOf, isTrained } from '@/tools/training';
+import { planImport } from '@/tools/transfer';
+import type { tTables } from '@/tools/transfer';
 
 // Types
 import type { iEntry, iExercise, iPlan, iPlanDay, iRow, iSession, iSet, iSlot, iWorkout } from '@/types';
@@ -80,7 +82,7 @@ const useTickfit = ({ error: toastError, info, success }: iUseTeaToastReturn, st
     const sets = useTable<iSet>(listOf(stored, 'sets'));
     // Each table under the name of its collection, the sync and the local store only deal with them as a whole
     const tables = { entries, exercises, planDays, plans, sessions, sets, slots, workouts };
-    const views = Object.entries(tables) as unknown as [string, Pick<iTable<iRow>, 'current' | 'merge' | 'rows'>][];
+    const views = Object.entries(tables) as unknown as [string, Pick<iTable<iRow>, 'current' | 'merge' | 'replace' | 'rows'>][];
 
     // Without a sync meta nothing was ever synced from here, the first sync decides what the tables hold
     const [settled, setSettled] = useState(Boolean(stored.sync));
@@ -126,6 +128,19 @@ const useTickfit = ({ error: toastError, info, success }: iUseTeaToastReturn, st
     // Nothing is written while the device copy is being thrown away, or the page would save it again when it reloads
     const [wiping, setWiping] = useState(false);
     usePersist(localStore, { ...Object.fromEntries(views.map(([name, table]) => [name, table.rows])), sync: sync.meta }, !wiping);
+
+    /** The rows of every table as they are now, also what is not on the server yet */
+    const snapshot = (): tTables => Object.fromEntries(views.map(([name, table]) => [name, table.current()]));
+
+    /** Replaces everything with the tables of a backup. The sync then makes the server match, rows that are not in it are deleted there. */
+    const restoreTables = (tables: tTables) => views.forEach(([name, table]) => table.replace(tables[name]));
+
+    /** Adds what the file has that is not here yet, returns how many rows */
+    const importTables = (file: tTables): number => {
+        const { added, count } = planImport(snapshot(), file);
+        views.forEach(([name, table]) => added[name].length && table.replace([...table.current(), ...added[name]]));
+        return count;
+    };
 
     /** Deletes the device copy and reloads: the app starts like on a new device and fetches everything from the server */
     const resetLocal = useCallback(async () => {
@@ -412,6 +427,9 @@ const useTickfit = ({ error: toastError, info, success }: iUseTeaToastReturn, st
         exercises,
         training: { ...training, session: trainingSession },
 
+        importTables,
+        restoreTables,
+        snapshot,
         sync: { resetLocal, save: sync.save, status: sync.status, unsavedCount: sync.unsavedCount },
 
         setActive,
