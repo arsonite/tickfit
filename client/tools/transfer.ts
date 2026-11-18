@@ -19,6 +19,7 @@
 
 // Utility
 import { COLLECTIONS } from '@/sync';
+import { timeField, timeOf } from '@/tools/training';
 
 // Types
 import type { iEntry, iExercise, iRow, iSession, iSet, iSlot, iWorkout } from '@/types';
@@ -150,7 +151,7 @@ const logCsv = (tables: tTables): string => {
             return { exercise: exercises.get(slot?.exercise ?? ''), order: [slot?.position ?? 0, set.position], session, set, workout: workouts.get(session?.workout ?? '') };
         })
         .sort((a, b) => (a.session?.date ?? '').localeCompare(b.session?.date ?? '') || (a.session?.id ?? '').localeCompare(b.session?.id ?? '') || a.order[0] - b.order[0] || a.order[1] - b.order[1]);
-    const header = ['date', 'workout', 'exercise', 'set', 'type', 'unit', 'reps_or_minutes', 'kg', 'seconds'];
+    const header = ['date', 'workout', 'exercise', 'set', 'type', 'unit', 'reps_or_minutes', 'kg', 'time_s', 'km', 'seconds'];
     const rows = lines.map(({ exercise, order, session, set, workout }) => [
         session?.date ?? '',
         workout?.name ?? '',
@@ -160,6 +161,8 @@ const logCsv = (tables: tTables): string => {
         exercise?.unit ?? '',
         set.value ?? 0,
         set.weight ?? 0,
+        exercise && timeField(exercise) ? timeOf(set, exercise) : '',
+        set.distance ?? '',
         set.started_at && set.ended_at ? Math.round((set.ended_at - set.started_at) / 1000) : '',
     ]);
     return [header, ...rows].map((row) => row.map(cell).join(',')).join('\n');

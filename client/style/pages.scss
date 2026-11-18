@@ -30,6 +30,11 @@
         .search {
             flex: 1;
             max-width: 280px;
+
+            @media (max-width: 600px) {
+                flex: 1 1 100%;
+                max-width: none;
+            }
         }
     }
 
@@ -71,9 +76,59 @@
         border-color: var(--border-strong);
     }
 
+    position: relative;
+
     &--archived {
         opacity: 0.7;
     }
+
+    &--selected {
+        border-color: var(--accent);
+    }
+
+    &__counts {
+        font-size: 12px;
+        min-height: 1em;
+    }
+
+    &__check {
+        position: absolute;
+        top: 8px;
+        left: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        width: 22px;
+        height: 22px;
+
+        background: var(--bg-primary);
+        border: 2px solid var(--border-strong);
+        border-radius: 50%;
+        color: #fff;
+
+        &--on {
+            background: var(--accent);
+            border-color: var(--accent);
+        }
+    }
+}
+
+.bulkbar {
+    position: sticky;
+    top: 0;
+    z-index: 4;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+
+    margin-bottom: 14px;
+    padding: 8px 12px;
+
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
 }
 
 .list {
@@ -195,6 +250,17 @@
         grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
     }
 
+    &__checks {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px 18px;
+    }
+
+    &__hint {
+        margin: -4px 0 0;
+        font-size: 12px;
+    }
+
     &__picture {
         display: flex;
         align-items: center;
@@ -235,11 +301,31 @@
             align-items: center;
             padding-left: 20px;
         }
+
+        &--tools {
+            align-items: center;
+        }
     }
 
     &__exercise {
-        flex: 1;
-        min-width: 160px;
+        flex: 1 1 180px;
+        min-width: 0;
+    }
+
+    @media (max-width: 600px) {
+        &__row > .day__no {
+            flex: 1 0 100%;
+        }
+
+        &__row > .slot__exercise {
+            flex: 1 1 0;
+        }
+    }
+
+    &__nums {
+        display: flex;
+        align-items: flex-end;
+        gap: 8px;
     }
 
     &__num {

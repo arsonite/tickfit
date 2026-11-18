@@ -43,6 +43,7 @@ import {
     unitOf,
     weeklyStats,
 } from '@/tools/stats';
+import { mainUnit } from '@/tools/training';
 import type { iExerciseDetail, iPREvent, iRange, iRecord, iStatsContext, iWeek, tRangeKind, tRecordKind } from '@/tools/stats';
 
 // Types
@@ -164,7 +165,8 @@ const recordLabel = (exercise: iExercise, kind: tRecordKind): string => {
     if (kind !== 'value') {
         return RECORD_LABEL[kind];
     }
-    return exercise.unit === 'reps' ? 'Most reps' : exercise.unit === 'minutes' ? 'Longest' : 'Furthest';
+    const unit = mainUnit(exercise);
+    return unit === 'reps' ? 'Most reps' : unit === 'minutes' ? 'Longest' : 'Furthest';
 };
 
 const RecentFeed = ({ events, onOpen }: { events: iPREvent[]; onOpen: (id: string) => void }) => {
@@ -282,7 +284,7 @@ const ExercisesTab = ({ ctx, onOpen }: { ctx: iStatsContext; onOpen: (id: string
         { key: 'name', header: 'Exercise', sortable: true, render: (row: tTotals) => <button className='stats__name' onClick={() => onOpen(row.exercise.id)}>{row.exercise.name}</button> },
         { key: 'sessions', header: 'Sessions', sortable: true, render: (row: tTotals) => formatNumber(row.sessions) },
         { key: 'sets', header: 'Sets', sortable: true, render: (row: tTotals) => formatNumber(row.sets) },
-        { key: 'reps', header: 'Reps / total', sortable: true, render: (row: tTotals) => `${formatNumber(row.reps)}${row.exercise.unit === 'reps' ? '' : ` ${unitOf(row.exercise)}`}` },
+        { key: 'reps', header: 'Reps / total', sortable: true, render: (row: tTotals) => `${formatNumber(row.reps)}${mainUnit(row.exercise) === 'reps' ? '' : ` ${unitOf(row.exercise)}`}` },
         { key: 'volume', header: 'Volume (kg)', sortable: true, render: (row: tTotals) => (row.volume ? formatNumber(row.volume) : dash) },
         { key: 'first', header: 'First', sortable: true, render: (row: tTotals) => shortDate(row.first) },
         { key: 'last', header: 'Last', sortable: true, render: (row: tTotals) => shortDate(row.last) },
@@ -330,7 +332,7 @@ const ExerciseDetail = ({ detail, exercise, totals }: { detail: iExerciseDetail;
     return (
         <div className='stats__detail'>
             <p className='muted'>
-                {exercise.unit}{weighted ? ' · kg' : ''} · {totals.sessions} session{totals.sessions === 1 ? '' : 's'} · {totals.sets} sets · {shortDate(totals.first)} → {shortDate(totals.last)}
+                {unit}{weighted ? ' · kg' : ''}{exercise.category ? ` · ${exercise.category}` : ''} · {totals.sessions} session{totals.sessions === 1 ? '' : 's'} · {totals.sets} sets · {shortDate(totals.first)} → {shortDate(totals.last)}
             </p>
             {detail.replacedBy.length > 0 && <p className='muted'>Done instead of this: {detail.replacedBy.map((row) => `${row.exercise.name} (${row.sessions}×)`).join(', ')}</p>}
             {totals.alternatives > 0 && <p className='muted'>Done as an alternative in {totals.alternatives} session{totals.alternatives === 1 ? '' : 's'}.</p>}
@@ -347,7 +349,7 @@ const ExerciseDetail = ({ detail, exercise, totals }: { detail: iExerciseDetail;
                 {hasE1rm && <span className='chart__key chart__key--1'>Est. 1RM</span>}
             </div>
 
-            <h3>{exercise.unit === 'reps' && weighted ? 'Volume per session (kg)' : `Total per session (${unit})`}</h3>
+            <h3>{mainUnit(exercise) === 'reps' && weighted ? 'Volume per session (kg)' : `Total per session (${unit})`}</h3>
             <BarChart data={detail.points.map((point) => ({ label: shortDate(point.date), value: point.volume }))} />
 
             <h3>Sessions</h3>
@@ -357,7 +359,7 @@ const ExerciseDetail = ({ detail, exercise, totals }: { detail: iExerciseDetail;
                     { key: 'date', header: 'Date', render: (row) => shortDate(row.date) },
                     {
                         key: 'sets',
-                        header: weighted && exercise.unit === 'reps' ? 'Sets (reps × kg)' : 'Sets',
+                        header: weighted && mainUnit(exercise) === 'reps' ? 'Sets (reps × kg)' : 'Sets',
                         render: (row) => <span>{row.label}{row.alternative && <small className='muted'> (alternative)</small>}</span>,
                     },
                 ]}

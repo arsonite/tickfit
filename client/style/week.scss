@@ -31,7 +31,39 @@
     &__nav {
         display: flex;
         flex-wrap: wrap;
+        gap: 8px 16px;
+    }
+
+    &__plan,
+    &__step {
+        display: flex;
+        align-items: center;
         gap: 6px;
+    }
+
+    // The stepper over the full width, the plan buttons share a row below it
+    @media (max-width: 600px) {
+        &__head {
+            align-items: stretch;
+            flex-direction: column;
+            gap: 12px;
+            margin-bottom: 14px;
+        }
+
+        &__nav {
+            flex-direction: column-reverse;
+            gap: 8px;
+        }
+
+        &__plan > *,
+        &__step > .tea-button,
+        &__arrow:has(.tea-button) {
+            flex: 1;
+        }
+
+        &__arrow {
+            flex: 0 0 52px;
+        }
     }
 
     &__grid {
@@ -93,7 +125,20 @@
         white-space: nowrap;
     }
 
+    // Grey, so the state of the day shows at a glance: done, rest, today, still to come
+    &__status {
+        position: absolute;
+        right: 10px;
+        bottom: 8px;
+
+        color: var(--text-tertiary);
+        opacity: 0.55;
+        pointer-events: none;
+    }
+
     &__body {
+        position: relative;
+
         display: flex;
         flex: 1;
         flex-direction: column;
@@ -228,4 +273,20 @@
     font-weight: 600;
     pointer-events: none;
     transform: translate(-50%, -120%);
+}
+
+@media (max-width: 600px) {
+    .week__grid {
+        gap: 10px;
+        grid-template-columns: 1fr;
+    }
+
+    .day {
+        min-height: 0;
+        padding: 10px;
+
+        &__body--add {
+            min-height: 52px;
+        }
+    }
 }

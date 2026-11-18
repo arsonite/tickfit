@@ -22,6 +22,8 @@ import { useState } from 'react';
 import { TeaAutocomplete, TeaButton, TeaInput, TeaTextarea, useConfirm } from '@teatype/components';
 
 // Hooks
+import { Icon } from '@/components/Icon';
+
 import type { tData } from '@/hooks/useTickfit';
 
 // Utility
@@ -54,11 +56,15 @@ export const PlansView = ({ data }: iPlansViewProps) => {
         return archived?.archived ? [{ label: `${archived.name} (archived)`, value: archived.id }, ...options] : options;
     };
 
-    const create = () => setSelected(data.plans.add({ active: false, name: 'New plan' }).id);
+    const create = () => {
+        setSelected(data.plans.add({ active: false, name: 'New plan' }).id);
+        data.success('Plan created');
+    };
 
     const addDay = () => {
         if (plan && workouts.length) {
             data.planDays.add({ plan: plan.id, position: (days[days.length - 1]?.position ?? -1) + 1, workout: workouts[0].id });
+            data.success('Day added');
         }
     };
 
@@ -99,11 +105,14 @@ export const PlansView = ({ data }: iPlansViewProps) => {
                         {row.active && <span className='badge badge--done'>{row.id === data.defaultPlan?.id ? 'Default' : 'Active'}</span>}
                     </button>
                 ))}
+                {data.planDuplicates.length > 0 && (
+                    <TeaButton size='small' onClick={data.removePlanDuplicates}>Remove {data.planDuplicates.length} duplicate{data.planDuplicates.length === 1 ? '' : 's'}</TeaButton>
+                )}
                 {!plans.length && <div className='empty'>No plans yet.</div>}
                 {archivedAll.length > 0 && (
                     <>
                         <button className='list__toggle' onClick={() => setShowArchived(!showArchived)}>
-                            {showArchived ? '▾' : '▸'} Archived ({archivedAll.length})
+                            <Icon name={showArchived ? 'chevron-down' : 'chevron-right'} /> Archived ({archivedAll.length})
                         </button>
                         {showArchived && (
                             <>
@@ -131,9 +140,9 @@ export const PlansView = ({ data }: iPlansViewProps) => {
                             <div key={day.id} className='slot__row'>
                                 <span className='day__no'>Day {ROMAN[index] ?? index + 1}</span>
                                 <TeaAutocomplete className='slot__exercise' value={day.workout} options={optionsFor(day.workout)} onChange={(workout) => data.planDays.patch(day.id, { workout })} />
-                                <button className='mini' title='Up' disabled={index === 0} onClick={() => move(index, -1)}>↑</button>
-                                <button className='mini' title='Down' disabled={index === days.length - 1} onClick={() => move(index, 1)}>↓</button>
-                                <button className='mini' title='Remove' onClick={() => data.planDays.remove([day.id])}>✕</button>
+                                <button className='mini' title='Up' disabled={index === 0} onClick={() => move(index, -1)}><Icon name='arrow-up' /></button>
+                                <button className='mini' title='Down' disabled={index === days.length - 1} onClick={() => move(index, 1)}><Icon name='arrow-down' /></button>
+                                <button className='mini' title='Remove' onClick={() => data.planDays.remove([day.id])}><Icon name='close' /></button>
                             </div>
                         ))}
                         <div className='editor__actions'>

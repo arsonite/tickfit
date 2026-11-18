@@ -27,6 +27,7 @@ import { DEFAULT_ACCENT } from '@/hooks/useSettings';
 import type { tData } from '@/hooks/useTickfit';
 
 // Utility
+import { embedImages } from '@/tools/files';
 import { BACKUP_TYPE, EXPORT_TYPE, backupFile, exportFile, logCsv, parseTables } from '@/tools/transfer';
 import type { tExportKind } from '@/tools/transfer';
 
@@ -83,7 +84,8 @@ export const SettingsView = ({ data, onApply, onChange, onClose, settings, toast
         toast.success(message);
     };
 
-    const exportKind = (kind: tExportKind, name: string, message: string) => download(exportFile(kind, data.snapshot()), `${name}-${stamp()}.json`, message);
+    // The pictures are in the file itself, so it can be restored on any server
+    const exportKind = async (kind: tExportKind, name: string, message: string) => download(exportFile(kind, await embedImages(data.snapshot())), `${name}-${stamp()}.json`, message);
 
     const restore = async () => {
         const ok = await confirm({
@@ -263,7 +265,7 @@ export const SettingsView = ({ data, onApply, onChange, onClose, settings, toast
                         {
                             id: 'backup-export',
                             label: 'Full backup',
-                            control: { type: 'button', label: 'Download', onClick: () => download(backupFile(data.snapshot(), settings), `backup-${stamp()}.json`, 'Backup downloaded') },
+                            control: { type: 'button', label: 'Download', onClick: async () => download(backupFile(await embedImages(data.snapshot()), settings), `backup-${stamp()}.json`, 'Backup downloaded') },
                         },
                         {
                             id: 'backup-restore',

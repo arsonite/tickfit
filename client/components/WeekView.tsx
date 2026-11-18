@@ -20,6 +20,7 @@ import { useState } from 'react';
 
 // TeaType
 import { TeaAutocomplete, TeaButton, TeaModal, TeaSelect, useConfirm } from '@teatype/components';
+import { Icon } from '@/components/Icon';
 import { usePointerDrag } from '@teatype/hooks/usePointerDrag';
 
 // Hooks
@@ -58,7 +59,8 @@ export const WeekView = ({ data, onNavigate, onOpen, showLastWeek }: iWeekViewPr
     const now = today();
     const week = calendarWeek(monday);
 
-    const sessionOn = (date: string): iSession | undefined => data.sessions.rows.find((session) => session.date === date);
+    const sessionOn = (date: string): iSession | undefined =>
+        data.sessions.rows.find((session) => session.date === date);
     const workoutName = (session?: iSession) => data.workoutById.get(session?.workout ?? '')?.name ?? '?';
     const workouts = [...data.workoutList].sort((a, b) => a.name.localeCompare(b.name));
 
@@ -84,7 +86,10 @@ export const WeekView = ({ data, onNavigate, onOpen, showLastWeek }: iWeekViewPr
         setMenu(null);
         const ok = await confirm({
             title: 'Remove day',
-            message: session.status === 'done' ? `Remove ${workoutName(session)} with everything that was logged?` : `Remove ${workoutName(session)} from this day?`,
+            message:
+                session.status === 'done'
+                    ? `Remove ${workoutName(session)} with everything that was logged?`
+                    : `Remove ${workoutName(session)} from this day?`,
             confirmText: 'Remove',
             variant: 'danger',
         });
@@ -93,7 +98,10 @@ export const WeekView = ({ data, onNavigate, onOpen, showLastWeek }: iWeekViewPr
         }
     };
 
-    const planOptions = data.activePlans.map((row) => ({ label: row.id === data.defaultPlan?.id ? `${row.name} (default)` : row.name, value: row.id }));
+    const planOptions = data.activePlans.map((row) => ({
+        label: row.id === data.defaultPlan?.id ? `${row.name} (default)` : row.name,
+        value: row.id,
+    }));
     const free = days.filter((date) => !sessionOn(date)).length;
     const made = weekPlan(days.map(sessionOn), data.plans.rows, data.planDays.rows, (id) => data.workoutById.get(id));
 
@@ -102,14 +110,21 @@ export const WeekView = ({ data, onNavigate, onOpen, showLastWeek }: iWeekViewPr
             <header className='week__head'>
                 <div>
                     <h1>
-                        Calendar week {week.week} <span className='muted'>{week.year}</span>
+                        KW {week.week} <span className='muted'>{week.year}</span>
                     </h1>
                     <p className='muted'>
                         {shortDate(days[0])} – {shortDate(days[6])}
                         {made && (
                             <>
                                 {' · '}
-                                <span className={`badge ${made === 'Custom' ? '' : 'badge--done'}`} title={made === 'Custom' ? 'Days were added, changed or moved by hand' : 'This week is the plan'}>
+                                <span
+                                    className={`badge ${made === 'Custom' ? '' : 'badge--done'}`}
+                                    title={
+                                        made === 'Custom'
+                                            ? 'Days were added, changed or moved by hand'
+                                            : 'This week is the plan'
+                                    }
+                                >
                                     {made === 'Custom' ? 'Custom' : `Plan: ${made}`}
                                 </span>
                             </>
@@ -117,6 +132,7 @@ export const WeekView = ({ data, onNavigate, onOpen, showLastWeek }: iWeekViewPr
                     </p>
                 </div>
                 <div className='week__nav'>
+                    <div className='week__plan'>
                     <TeaButton
                         size='small'
                         onClick={() => {
@@ -129,13 +145,36 @@ export const WeekView = ({ data, onNavigate, onOpen, showLastWeek }: iWeekViewPr
                     <TeaButton size='small' disabled={!free} onClick={() => data.fillRestDays(monday)}>
                         Fill with rest days
                     </TeaButton>
-                    <span className={`week__arrow ${drag?.target === 'week:-1' ? 'week__arrow--over' : ''}`} data-drop='week:-1'>
-                        <TeaButton size='small' onClick={() => setMonday(addDays(monday, -7))}>‹</TeaButton>
+                    </div>
+                    <div className='week__step'>
+                    <span
+                        className={`week__arrow ${drag?.target === 'week:-1' ? 'week__arrow--over' : ''}`}
+                        data-drop='week:-1'
+                    >
+                        <TeaButton size='small' onClick={() => setMonday(addDays(monday, -7))}>
+                            <Icon name='chevron-left' />
+                        </TeaButton>
                     </span>
-                    <TeaButton size='small' disabled={monday === mondayOf(now)} onClick={() => setMonday(mondayOf(now))}>Today</TeaButton>
-                    <span className={`week__arrow ${drag?.target === 'week:1' ? 'week__arrow--over' : ''}`} data-drop='week:1'>
-                        <TeaButton size='small' disabled={monday >= addDays(mondayOf(now), MAX_WEEKS_AHEAD * 7)} onClick={() => setMonday(addDays(monday, 7))}>›</TeaButton>
+                    <TeaButton
+                        size='small'
+                        disabled={monday === mondayOf(now)}
+                        onClick={() => setMonday(mondayOf(now))}
+                    >
+                        Today
+                    </TeaButton>
+                    <span
+                        className={`week__arrow ${drag?.target === 'week:1' ? 'week__arrow--over' : ''}`}
+                        data-drop='week:1'
+                    >
+                        <TeaButton
+                            size='small'
+                            disabled={monday >= addDays(mondayOf(now), MAX_WEEKS_AHEAD * 7)}
+                            onClick={() => setMonday(addDays(monday, 7))}
+                        >
+                            <Icon name='chevron-right' />
+                        </TeaButton>
                     </span>
+                    </div>
                 </div>
             </header>
 
@@ -155,12 +194,27 @@ export const WeekView = ({ data, onNavigate, onOpen, showLastWeek }: iWeekViewPr
                         >
                             <div className='day__head'>
                                 {session && !locked && (
-                                    <button className='day__grip' title='Drag to another day' aria-label='Drag to another day' onPointerDown={start(session.id)}>⠿</button>
+                                    <button
+                                        className='day__grip'
+                                        title='Drag to another day'
+                                        aria-label='Drag to another day'
+                                        onPointerDown={start(session.id)}
+                                    >
+                                        ⠿
+                                    </button>
                                 )}
                                 <span className='day__no'>Day {ROMAN[index]}</span>
-                                <span className='muted'>{weekdayName(date)} · {shortDate(date)}</span>
+                                <span className='muted'>
+                                    {weekdayName(date)} · {shortDate(date)}
+                                </span>
                                 {session && (
-                                    <button className='mini' title='Move, skip or remove' onClick={() => setMenu(open ? null : date)}>⋯</button>
+                                    <button
+                                        className='mini'
+                                        title='Move, skip or remove'
+                                        onClick={() => setMenu(open ? null : date)}
+                                    >
+                                        ⋯
+                                    </button>
                                 )}
                             </div>
 
@@ -168,7 +222,24 @@ export const WeekView = ({ data, onNavigate, onOpen, showLastWeek }: iWeekViewPr
                                 <button className='day__body' onClick={() => onOpen(session.id)}>
                                     <strong>{workoutName(session)}</strong>
                                     {workout?.focus && <span className='muted'>{workout.focus}</span>}
-                                    <span className={`badge badge--${session.status}`}>{STATUS_LABEL[session.status]}</span>
+                                    <span className={`badge badge--${session.status}`}>
+                                        {STATUS_LABEL[session.status]}
+                                    </span>
+                                    <Icon
+                                        className='day__status'
+                                        size={36}
+                                        name={
+                                            workout?.kind === 'rest'
+                                                ? 'moon'
+                                                : session.status === 'done'
+                                                  ? 'check-circle'
+                                                  : session.status === 'skipped'
+                                                    ? 'skip'
+                                                    : date === now
+                                                      ? 'sun'
+                                                      : 'calendar'
+                                        }
+                                    />
                                 </button>
                             ) : (
                                 <button
@@ -184,7 +255,12 @@ export const WeekView = ({ data, onNavigate, onOpen, showLastWeek }: iWeekViewPr
 
                             {lastWeek && (
                                 <span className='day__last muted'>
-                                    Last week: {workoutName(lastWeek)}{lastWeek.status === 'done' ? ' ✓' : lastWeek.status === 'skipped' ? ' (skipped)' : ''}
+                                    Last week: {workoutName(lastWeek)}
+                                    {lastWeek.status === 'done'
+                                        ? ' (done)'
+                                        : lastWeek.status === 'skipped'
+                                          ? ' (skipped)'
+                                          : ''}
                                 </span>
                             )}
 
@@ -192,16 +268,39 @@ export const WeekView = ({ data, onNavigate, onOpen, showLastWeek }: iWeekViewPr
                                 <div className='day__menu'>
                                     {!locked && (
                                         <>
-                                            <button onClick={() => { setMenu(null); data.moveDay(session.id, addDays(date, -1)); }}>‹ A day earlier</button>
-                                            <button onClick={() => { setMenu(null); data.moveDay(session.id, addDays(date, 1)); }}>A day later ›</button>
+                                            <button
+                                                onClick={() => {
+                                                    setMenu(null);
+                                                    data.moveDay(session.id, addDays(date, -1));
+                                                }}
+                                            >
+                                                <Icon name='chevron-left' /> A day earlier
+                                            </button>
+                                            <button
+                                                onClick={() => {
+                                                    setMenu(null);
+                                                    data.moveDay(session.id, addDays(date, 1));
+                                                }}
+                                            >
+                                                A day later <Icon name='chevron-right' />
+                                            </button>
                                         </>
                                     )}
                                     {session.status !== 'done' && (
-                                        <button onClick={() => { setMenu(null); data.sessions.patch(session.id, { status: session.status === 'skipped' ? 'planned' : 'skipped' }); }}>
+                                        <button
+                                            onClick={() => {
+                                                setMenu(null);
+                                                data.sessions.patch(session.id, {
+                                                    status: session.status === 'skipped' ? 'planned' : 'skipped',
+                                                });
+                                            }}
+                                        >
                                             {session.status === 'skipped' ? 'Plan again' : 'Skip'}
                                         </button>
                                     )}
-                                    <button className='danger' onClick={() => void remove(session)}>Remove</button>
+                                    <button className='danger' onClick={() => void remove(session)}>
+                                        Remove
+                                    </button>
                                 </div>
                             )}
                         </article>
@@ -213,7 +312,9 @@ export const WeekView = ({ data, onNavigate, onOpen, showLastWeek }: iWeekViewPr
                 <div className='empty'>
                     <p className='muted'>No workouts yet, create your own or start from an example.</p>
                     <div className='empty__actions'>
-                        <TeaButton theme='filled' onClick={data.seed}>Add the example plan</TeaButton>
+                        <TeaButton theme='filled' onClick={data.seed}>
+                            Add the example plan
+                        </TeaButton>
                         <TeaButton onClick={() => onNavigate('plans')}>Create a plan</TeaButton>
                     </div>
                 </div>
@@ -245,7 +346,12 @@ export const WeekView = ({ data, onNavigate, onOpen, showLastWeek }: iWeekViewPr
                 }
                 onClose={() => setAdding(null)}
             >
-                <TeaAutocomplete label='Workout' value={pick} options={workouts.map((workout) => ({ label: workout.name, value: workout.id }))} onChange={setPick} />
+                <TeaAutocomplete
+                    label='Workout'
+                    value={pick}
+                    options={workouts.map((workout) => ({ label: workout.name, value: workout.id }))}
+                    onChange={setPick}
+                />
             </TeaModal>
 
             <TeaModal
@@ -268,14 +374,23 @@ export const WeekView = ({ data, onNavigate, onOpen, showLastWeek }: iWeekViewPr
             >
                 {planOptions.length ? (
                     <>
-                        <TeaSelect label='Plan' value={plan} options={planOptions} onChange={(event) => setPlan(event.target.value)} />
+                        <TeaSelect
+                            label='Plan'
+                            value={plan}
+                            options={planOptions}
+                            onChange={(event) => setPlan(event.target.value)}
+                        />
                         <p className='muted'>
-                            The days of the plan go on Monday, Tuesday, … of this week. Days that are filled already ({7 - free} of 7) stay as they are, nothing else is changed.
+                            The days of the plan go on Monday, Tuesday, … of this week. Days that are filled already (
+                            {7 - free} of 7) stay as they are, nothing else is changed.
                         </p>
                     </>
                 ) : (
                     <p className='muted'>
-                        There is no active plan. <button className='link' onClick={() => onNavigate('plans')}>Activate or create one</button>
+                        There is no active plan.{' '}
+                        <button className='link' onClick={() => onNavigate('plans')}>
+                            Activate or create one
+                        </button>
                     </p>
                 )}
             </TeaModal>

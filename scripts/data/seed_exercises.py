@@ -32,10 +32,11 @@ CATALOGUE = HERE / 'exercises.json'
 
 
 def wanted(weeks: list, aliases: dict, catalogue: Path = CATALOGUE) -> dict:
-    """casefolded name -> {name, unit, weighted}. The catalogue wins over what the sheets say."""
+    """casefolded name -> {name, unit, weighted, category, timed, distanced}. The catalogue wins over what the sheets say."""
     found = {}
     for item in json.loads(catalogue.read_text('utf-8')) if catalogue.exists() else []:
-        found[item['name'].casefold()] = {'name': item['name'], 'unit': item['unit'], 'weighted': item.get('weighted', False), 'notes': item.get('notes', '')}
+        found[item['name'].casefold()] = {'name': item['name'], 'unit': item['unit'], 'weighted': item.get('weighted', False), 'notes': item.get('notes', ''),
+                                     'category': item.get('category', ''), 'timed': item.get('timed', False), 'distanced': item.get('distanced', False)}
     for week in weeks:
         for workout in week['workouts']:
             for line in workout['lines']:

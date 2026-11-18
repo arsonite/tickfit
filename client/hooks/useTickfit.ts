@@ -16,7 +16,7 @@
  */
 
 // React imports
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 // TeaType
 import type { iUseTeaToastReturn } from '@teatype/components/TeaToast';
@@ -43,6 +43,7 @@ import {
     workoutCollection,
 } from '@/sync';
 import { today, weekDays } from '@/tools/dates';
+import { isData, uploadImage } from '@/tools/files';
 import { EXERCISES, PLAN, WORKOUTS } from '@/tools/seed';
 import { familyOf, isTrained } from '@/tools/training';
 import { planImport } from '@/tools/transfer';
@@ -123,6 +124,27 @@ const useTickfit = ({ error: toastError, info, success }: iUseTeaToastReturn, st
         },
         onSync,
     });
+
+    // A picture is a data URL on the device until the server has it as a file, then the exercise only keeps the path
+    const { current: currentExercises, patch: patchExercise } = exercises;
+    const waiting = exercises.rows.find((exercise) => isData(exercise.image));
+    useEffect(() => {
+        if (!waiting || sync.status !== 'idle') {
+            return;
+        }
+        let cancelled = false;
+        uploadImage(waiting.image ?? '')
+            .then((path) => {
+                // Not if the picture was changed while it was sent
+                if (!cancelled && currentExercises().find((row) => row.id === waiting.id)?.image === waiting.image) {
+                    patchExercise(waiting.id, { image: path });
+                }
+            })
+            .catch(() => undefined); // It is tried again with the next sync
+        return () => {
+            cancelled = true;
+        };
+    }, [currentExercises, patchExercise, sync.status, waiting]);
 
     // One transaction, so the sync meta never says more than the saved tables
     // Nothing is written while the device copy is being thrown away, or the page would save it again when it reloads
@@ -225,8 +247,9 @@ const useTickfit = ({ error: toastError, info, success }: iUseTeaToastReturn, st
             removeSlots(slots.current().filter((slot) => ids.includes(slot.workout) && !slot.alternative_of).map((slot) => slot.id));
             planDays.remove(planDays.current().filter((day) => ids.includes(day.workout)).map((day) => day.id));
             workouts.remove(ids);
+            success('Workout deleted');
         },
-        [planDays, removeSessions, removeSlots, sessions, slots, workouts],
+        [planDays, removeSessions, removeSlots, sessions, slots, success, workouts],
     );
 
     // ---- Versions of a workout
@@ -270,13 +293,14 @@ const useTickfit = ({ error: toastError, info, success }: iUseTeaToastReturn, st
         [isLocked, planDays, purgeEntries, sessions, slots, workouts],
     );
 
-    const removeExercise = useCallback(
-        (id: string) => {
-            // Lines of it, and alternatives of other lines that use it
-            removeSlots(slots.current().filter((slot) => slot.exercise === id).map((slot) => slot.id));
-            exercises.remove([id]);
+    const removeExercises = useCallback(
+        (ids: string[]) => {
+            // Lines of them, and alternatives of other lines that use them
+            removeSlots(slots.current().filter((slot) => ids.includes(slot.exercise)).map((slot) => slot.id));
+            exercises.remove(ids);
+            success(ids.length === 1 ? 'Exercise deleted' : `${ids.length} exercises deleted`);
         },
-        [exercises, removeSlots, slots],
+        [exercises, removeSlots, slots, success],
     );
 
     // ---- The calendar: days are put there by hand, nothing is scheduled by itself
@@ -292,16 +316,18 @@ const useTickfit = ({ error: toastError, info, success }: iUseTeaToastReturn, st
         (id: string, active: boolean) => {
             plans.patch(id, { active });
             settleDefault();
+            success(active ? 'Plan activated' : 'Plan deactivated');
         },
-        [plans, settleDefault],
+        [plans, settleDefault, success],
     );
 
     const setDefault = useCallback(
         (id: string) => {
             plans.patch(id, { active: true, default: true });
             plans.current().forEach((plan) => plan.id !== id && plan.default && plans.patch(plan.id, { default: false }));
+            success('Default plan changed');
         },
-        [plans],
+        [plans, success],
     );
 
     /** An archived plan is not active anymore, so it is not the default either */
@@ -309,8 +335,9 @@ const useTickfit = ({ error: toastError, info, success }: iUseTeaToastReturn, st
         (id: string, archived: boolean) => {
             plans.patch(id, archived ? { active: false, archived, default: false } : { archived });
             settleDefault();
+            success(archived ? 'Plan archived' : 'Plan unarchived');
         },
-        [plans, settleDefault],
+        [plans, settleDefault, success],
     );
 
     const removePlan = useCallback(
@@ -318,9 +345,29 @@ const useTickfit = ({ error: toastError, info, success }: iUseTeaToastReturn, st
             planDays.remove(planDays.current().filter((day) => day.plan === id).map((day) => day.id));
             plans.remove([id]);
             settleDefault();
+            success('Plan deleted');
         },
-        [planDays, plans, settleDefault],
+        [planDays, plans, settleDefault, success],
     );
+
+    // Plans with the same name and the same workouts on the same days are one plan; the default, then an active one, then the oldest stays
+    const planDuplicates = useMemo(() => {
+        const groups = new Map<string, iPlan[]>();
+        plans.rows.forEach((plan) => {
+            const days = planDays.rows.filter((day) => day.plan === plan.id).sort((a, b) => a.position - b.position).map((day) => `${day.position}:${workoutById.get(day.workout)?.family || day.workout}`);
+            const key = `${plan.name.trim().toLowerCase()}|${days.join(',')}`;
+            groups.set(key, [...(groups.get(key) ?? []), plan]);
+        });
+        const rank = (plan: iPlan) => Number(Boolean(plan.default)) * 2 + Number(Boolean(plan.active));
+        return [...groups.values()].filter((group) => group.length > 1).flatMap((group) => [...group].sort((a, b) => rank(b) - rank(a)).slice(1));
+    }, [planDays.rows, plans.rows, workoutById]);
+
+    const removePlanDuplicates = useCallback(() => {
+        planDuplicates.forEach((plan) => planDays.remove(planDays.current().filter((day) => day.plan === plan.id).map((day) => day.id)));
+        plans.remove(planDuplicates.map((plan) => plan.id));
+        settleDefault();
+        success(`${planDuplicates.length} duplicate plan${planDuplicates.length === 1 ? '' : 's'} removed`);
+    }, [planDays, planDuplicates, plans, settleDefault, success]);
 
     /** Moves a day to another date, the day that is there changes places with it. Days that were trained stay. */
     const moveDay = useCallback(
@@ -458,13 +505,17 @@ const useTickfit = ({ error: toastError, info, success }: iUseTeaToastReturn, st
         isLocked,
         linesOf,
         moveDay,
+        info,
         onError,
-        removeExercise,
+        planDuplicates,
+        removeExercises,
+        removePlanDuplicates,
         removePlan,
         removeSessions,
         removeSlots,
         removeWorkout,
         seed,
+        success,
     };
 };
 

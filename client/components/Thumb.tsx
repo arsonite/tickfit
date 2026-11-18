@@ -15,6 +15,9 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
+// Utility
+import { fileUrl } from '@/tools/files';
+
 // Types
 import type { iExercise } from '@/types';
 
@@ -26,6 +29,6 @@ interface iThumbProps {
 /** The picture of an exercise, its initials while it has none */
 export const Thumb = ({ exercise, size }: iThumbProps) => (
     <span className={`thumb ${size ? `thumb--${size}` : ''}`}>
-        {exercise?.image ? <img src={exercise.image} alt={exercise.name} /> : <span>{(exercise?.name ?? '?').slice(0, 2).toUpperCase()}</span>}
+        {exercise?.image ? <img src={fileUrl(exercise.image)} alt={exercise.name} /> : <span>{(exercise?.name ?? '?').slice(0, 2).toUpperCase()}</span>}
     </span>
 );

@@ -23,12 +23,14 @@ from .SessionExercise import SessionExercise
 class SetLog(HSDBModel):
     rev              = HSDBAttribute(int, description='Save timestamp (ms) of the last write by a client, set by the sync')
     disabled         = HSDBAttribute(bool, description='Not done on purpose, shown as X')
+    distance         = HSDBAttribute(float, description='km, for an exercise that counts the distance')
     done             = HSDBAttribute(bool)
     ended_at         = HSDBAttribute(int, description='Unix time (ms) the set was finished, 0 = not')
     kind             = HSDBAttribute(str, description='DS (drop set), P (partial), A (assisted) or empty')
     position         = HSDBAttribute(int, required=True)
     rest_ended_at    = HSDBAttribute(int, description='Unix time (ms) the rest after the set ended (next set started or rest skipped)')
     rest_started_at  = HSDBAttribute(int, description='Unix time (ms) the rest after the set was triggered, 0 = no rest')
+    seconds          = HSDBAttribute(float, description='Duration of the set in seconds, for an exercise that counts the time. Filled from the recorded time, can be changed')
     session          = HSDBRelation.ManyToOne(Session, required=True) # Same session as session_exercise, to load a day's sets in one request
     session_exercise = HSDBRelation.ManyToOne(SessionExercise, required=True)
     started_at       = HSDBAttribute(int, description='Unix time (ms) the set was started, 0 = not. Drop sets and partials are sets of their own')

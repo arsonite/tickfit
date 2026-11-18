@@ -30,6 +30,8 @@ import type { tData } from '@/hooks/useTickfit';
 // Utility
 import { familyOf } from '@/tools/training';
 
+import { Icon } from '@/components/Icon';
+
 // Types
 import type { iSlot, iWorkout, tKind } from '@/types';
 
@@ -83,7 +85,10 @@ export const WorkoutsView = ({ data }: iWorkoutsViewProps) => {
     const edit = (changes: Partial<iWorkout>) => change((id) => data.workouts.patch(id, changes));
     const editSlot = (id: string, changes: Partial<iSlot>) => change((_, slot) => data.slots.patch(slot(id), changes));
 
-    const create = () => setSelected(data.workouts.add({ kind: 'strength', name: 'New workout' }).id);
+    const create = () => {
+        setSelected(data.workouts.add({ kind: 'strength', name: 'New workout' }).id);
+        data.success('Workout created');
+    };
 
     const duplicate = () => {
         if (!workout) {
@@ -97,6 +102,7 @@ export const WorkoutsView = ({ data }: iWorkoutsViewProps) => {
             ),
         );
         setSelected(copy.id);
+        data.success('Workout duplicated');
     };
 
     const archive = async () => {
@@ -113,6 +119,7 @@ export const WorkoutsView = ({ data }: iWorkoutsViewProps) => {
         }
         if (workout) {
             data.workouts.patch(workout.id, { archived: true });
+            data.success('Workout archived');
         }
     };
 
@@ -182,24 +189,28 @@ export const WorkoutsView = ({ data }: iWorkoutsViewProps) => {
             <div className='slot__row'>
                 <Thumb exercise={data.exerciseById.get(main.exercise)} />
                 <TeaAutocomplete className='slot__exercise' value={main.exercise} options={optionsFor(main.exercise)} onChange={(exercise) => editSlot(main.id, { exercise })} />
-                <TeaInput className='slot__num' label='Sets' type='number' min={1} value={main.sets || ''} onChange={(event) => editSlot(main.id, { sets: number(event.target.value) || 1 })} />
-                <TeaInput className='slot__num' label='From' type='number' min={0} value={main.rep_min || ''} onChange={(event) => editSlot(main.id, { rep_min: number(event.target.value) })} />
-                <TeaInput className='slot__num' label='To' type='number' min={0} value={main.rep_max || ''} onChange={(event) => editSlot(main.id, { rep_max: number(event.target.value) })} />
+                <div className='slot__nums'>
+                    <TeaInput className='slot__num' label='Sets' type='number' min={1} value={main.sets || ''} onChange={(event) => editSlot(main.id, { sets: number(event.target.value) || 1 })} />
+                    <TeaInput className='slot__num' label='From' type='number' min={0} value={main.rep_min || ''} onChange={(event) => editSlot(main.id, { rep_min: number(event.target.value) })} />
+                    <TeaInput className='slot__num' label='To' type='number' min={0} value={main.rep_max || ''} onChange={(event) => editSlot(main.id, { rep_max: number(event.target.value) })} />
+                </div>
             </div>
-            <div className='slot__row'>
+            <div className='slot__row slot__row--tools'>
                 <TeaInput className='grow' placeholder='Notes, e.g. *includes drop sets' value={main.notes ?? ''} onChange={(event) => editSlot(main.id, { notes: event.target.value })} />
                 {index > 0 && <TeaCheckbox label='Superset with above' checked={!!main.superset} onChange={(superset) => editSlot(main.id, { superset })} />}
-                <button className='mini' title='Up' disabled={index === 0} onClick={() => move(group, index, -1)}>↑</button>
-                <button className='mini' title='Down' disabled={index === group.length - 1} onClick={() => move(group, index, 1)}>↓</button>
-                <button className='mini' title='Remove' onClick={() => void removeLine(main)}>✕</button>
+                <button className='mini' title='Up' disabled={index === 0} onClick={() => move(group, index, -1)}><Icon name='arrow-up' /></button>
+                <button className='mini' title='Down' disabled={index === group.length - 1} onClick={() => move(group, index, 1)}><Icon name='arrow-down' /></button>
+                <button className='mini' title='Remove' onClick={() => void removeLine(main)}><Icon name='close' /></button>
             </div>
             {alternatives.map((alternative) => (
                 <div key={alternative.id} className='slot__row slot__row--alt'>
                     <span className='muted'>or</span>
                     <TeaAutocomplete className='slot__exercise' value={alternative.exercise} options={optionsFor(alternative.exercise)} onChange={(exercise) => editSlot(alternative.id, { exercise })} />
-                    <TeaInput className='slot__num' type='number' min={0} placeholder='From' value={alternative.rep_min || ''} onChange={(event) => editSlot(alternative.id, { rep_min: number(event.target.value) })} />
-                    <TeaInput className='slot__num' type='number' min={0} placeholder='To' value={alternative.rep_max || ''} onChange={(event) => editSlot(alternative.id, { rep_max: number(event.target.value) })} />
-                    <button className='mini' title='Remove alternative' onClick={() => dropSlot(alternative.id)}>✕</button>
+                    <div className='slot__nums'>
+                        <TeaInput className='slot__num' type='number' min={0} placeholder='From' value={alternative.rep_min || ''} onChange={(event) => editSlot(alternative.id, { rep_min: number(event.target.value) })} />
+                        <TeaInput className='slot__num' type='number' min={0} placeholder='To' value={alternative.rep_max || ''} onChange={(event) => editSlot(alternative.id, { rep_max: number(event.target.value) })} />
+                    </div>
+                    <button className='mini' title='Remove alternative' onClick={() => dropSlot(alternative.id)}><Icon name='close' /></button>
                 </div>
             ))}
             <button className='link' disabled={!exercises.length} onClick={() => addAlternative(main, alternatives.length)}>+ Alternative</button>
@@ -223,7 +234,7 @@ export const WorkoutsView = ({ data }: iWorkoutsViewProps) => {
                 {archivedCount > 0 && (
                     <>
                         <button className='list__toggle' onClick={() => setShowArchived(!showArchived)}>
-                            {showArchived ? '▾' : '▸'} Archived ({archivedCount})
+                            <Icon name={showArchived ? 'chevron-down' : 'chevron-right'} /> Archived ({archivedCount})
                         </button>
                         {showArchived && (
                             <>
@@ -283,7 +294,10 @@ export const WorkoutsView = ({ data }: iWorkoutsViewProps) => {
                     </fieldset>
                     <div className='editor__actions'>
                         {workout.archived ? (
-                            <TeaButton onClick={() => data.workouts.patch(workout.id, { archived: false })}>Unarchive</TeaButton>
+                            <TeaButton onClick={() => {
+                                data.workouts.patch(workout.id, { archived: false });
+                                data.success('Workout unarchived');
+                            }}>Unarchive</TeaButton>
                         ) : (
                             <TeaButton onClick={() => void archive()}>Archive</TeaButton>
                         )}

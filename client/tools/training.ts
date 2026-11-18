@@ -16,7 +16,7 @@
  */
 
 // Types
-import type { iEntry, iPlan, iPlanDay, iSession, iSet, iWorkout } from '@/types';
+import type { iEntry, iExercise, iPlan, iPlanDay, iSession, iSet, iWorkout } from '@/types';
 
 /** All versions of a workout share the id of the first one */
 const familyOf = (workout: iWorkout): string => workout.family || workout.id;
@@ -29,6 +29,20 @@ const clock = (ms: number): string => {
     const hours = Math.floor(total / 3600);
     return hours ? `${hours}:${String(minutes).padStart(2, '0')}:${seconds}` : `${minutes}:${seconds}`;
 };
+
+/** Where the time of a set is kept: in the value (minutes) of an exercise counted in minutes, else in the seconds of a timed one */
+const timeField = (exercise?: iExercise): 'seconds' | 'value' | null => (exercise?.unit === 'minutes' ? 'value' : exercise?.timed ? 'seconds' : null);
+
+const timeOf = (set: Pick<iSet, 'seconds' | 'value'>, exercise?: iExercise): number => {
+    const field = timeField(exercise);
+    return field === 'value' ? Math.round((set.value ?? 0) * 60) : field === 'seconds' ? (set.seconds ?? 0) : 0;
+};
+
+const timeChange = (exercise: iExercise | undefined, seconds: number): Partial<iSet> =>
+    timeField(exercise) === 'value' ? { value: seconds / 60 } : timeField(exercise) === 'seconds' ? { seconds } : {};
+
+/** The unit the stats count an exercise in */
+const mainUnit = (exercise: iExercise): 'km' | 'meters' | 'minutes' | 'reps' => (exercise.unit === 'none' ? (exercise.timed ? 'minutes' : 'km') : exercise.unit);
 
 const isRunning = (set: iSet): boolean => Boolean(set.started_at) && !set.ended_at;
 const hasOpenRest = (set: iSet): boolean => Boolean(set.rest_started_at) && !set.rest_ended_at;
@@ -67,7 +81,7 @@ const trainedHistory = (sessions: iSession[], entries: iEntry[], sets: iSet[], e
     const done = new Map(sessions.filter((session) => session.status === 'done').map((session) => [session.id, session]));
     const setsOf = new Map<string, iSet[]>();
     sets.forEach((set) => {
-        if (set.done && !set.disabled && (set.value || set.weight) && done.has(set.session)) {
+        if (set.done && !set.disabled && (set.value || set.weight || set.seconds || set.distance) && done.has(set.session)) {
             setsOf.set(set.session_exercise, [...(setsOf.get(set.session_exercise) ?? []), set]);
         }
     });
@@ -110,5 +124,5 @@ const weekPlan = (days: (iSession | undefined)[], plans: iPlan[], planDays: iPla
     return match?.name ?? 'Custom';
 };
 
-export { clock, familyOf, hasOpenRest, interleave, isOpen, isRunning, isTrained, suggestNext, trainedHistory, weekPlan };
+export { clock, familyOf, hasOpenRest, interleave, isOpen, isRunning, isTrained, mainUnit, suggestNext, timeChange, timeField, timeOf, trainedHistory, weekPlan };
 export type { iTrained };

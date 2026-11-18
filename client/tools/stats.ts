@@ -17,7 +17,7 @@
 
 // Utility
 import { addDays, calendarWeek, mondayOf, today as todayISO } from '@/tools/dates';
-import { familyOf } from '@/tools/training';
+import { familyOf, mainUnit } from '@/tools/training';
 
 // Types
 import type { iEntry, iExercise, iPlan, iPlanDay, iSession, iSet, iSlot, iWorkout, tSetKind } from '@/types';
@@ -163,7 +163,7 @@ interface iPlanStats {
     weeks: number;
 }
 
-const isWeightedReps = (exercise: iExercise): boolean => Boolean(exercise.weighted) && exercise.unit === 'reps';
+const isWeightedReps = (exercise: iExercise): boolean => Boolean(exercise.weighted) && mainUnit(exercise) === 'reps';
 
 const isRecordSet = (log: iLog): boolean => !log.kind || log.kind === 'DS';
 
@@ -195,15 +195,32 @@ const formatMinutes = (minutes: number): string => {
     return total >= 60 ? `${Math.floor(total / 60)} h ${String(total % 60).padStart(2, '0')} min` : `${total} min`;
 };
 
-const UNIT_LABEL = { meters: 'm', minutes: 'min', reps: 'reps' };
+const UNIT_LABEL = { km: 'km', meters: 'm', minutes: 'min', reps: 'reps' };
 
-const unitOf = (exercise: iExercise): string => UNIT_LABEL[exercise.unit] ?? exercise.unit;
+const unitOf = (exercise: iExercise): string => UNIT_LABEL[mainUnit(exercise)];
 
-/** "9 × 75", "9", "12 min", "400 m × 20" and DS / P / A behind a set that is not a normal one */
-const formatSet = (exercise: iExercise, log: Pick<iLog, 'kind' | 'value' | 'weight'>): string => {
-    const value = formatNumber(log.value);
-    const amount = exercise.unit === 'reps' ? value : `${value} ${unitOf(exercise)}`;
-    const text = exercise.weighted && log.weight > 0 ? `${amount} × ${formatNumber(log.weight)}` : amount;
+/** 75 s -> "1:15" */
+const formatTime = (seconds: number): string => `${Math.floor(seconds / 60)}:${String(Math.round(seconds % 60)).padStart(2, '0')}`;
+
+/** "9 × 75", "9", "12:30", "5.2 km · 31:10", "400 m × 20" and DS / P / A behind a set that is not a normal one */
+const formatSet = (exercise: iExercise, log: Pick<iLog, 'kind' | 'value' | 'weight'> & { distance?: number; seconds?: number }): string => {
+    const parts: string[] = [];
+    if (exercise.unit === 'reps') {
+        parts.push(formatNumber(log.value));
+    } else if (exercise.unit === 'minutes') {
+        parts.push(formatTime(Math.round(log.value * 60)));
+    } else if (exercise.unit === 'meters') {
+        parts.push(`${formatNumber(log.value)} m`);
+    }
+    if (exercise.timed && exercise.unit !== 'minutes' && log.seconds) {
+        parts.push(formatTime(log.seconds));
+    }
+    if (exercise.distanced && log.distance) {
+        parts.push(`${formatNumber(log.distance)} km`);
+    }
+    const amount = parts.join(' · ');
+    const weight = exercise.weighted && log.weight > 0 ? formatNumber(log.weight) : '';
+    const text = weight ? (amount ? (exercise.unit === 'reps' ? `${amount} × ${weight}` : `${amount} · ${weight} kg`) : `${weight} kg`) : amount;
     return log.kind ? `${text} ${log.kind}` : text;
 };
 
@@ -229,7 +246,7 @@ const buildStats = (input: iStatsInput, range: iRange = {}): iStatsContext => {
         }
         const main = slotById.get(entry.slot);
         const kind = set.kind ?? '';
-        const value = set.value ?? 0;
+        const value = exercise.unit === 'none' ? (exercise.timed ? (set.seconds ?? 0) / 60 : (set.distance ?? 0)) : (set.value ?? 0);
         const weight = set.weight ?? 0;
         const alternative = Boolean(chosen.alternative_of) || (Boolean(main) && main?.id !== chosen.id);
         logs.push({
@@ -293,7 +310,7 @@ const weeklyStats = ({ logs, sessions }: iStatsContext): iWeek[] => {
     for (const log of logs) {
         const row = week(log.date);
         row.sets += 1;
-        row.reps += log.exercise.unit === 'reps' ? log.value : 0;
+        row.reps += mainUnit(log.exercise) === 'reps' ? log.value : 0;
         row.volume += log.volume;
     }
     return [...weeks.values()].sort((a, b) => a.key.localeCompare(b.key));
@@ -426,7 +443,7 @@ const exerciseDetail = ({ input, logs, sessions }: iStatsContext, id: string): i
         alternative: list.some((log) => log.alternative),
         date: list[0].date,
         entryNotes: (notes.get(session) ?? []).filter((entry) => list.some((log) => log.entry === entry.id)).map((entry) => (entry.notes as string).trim()),
-        label: list.map((log) => formatSet(exercise, log)).join(', '),
+        label: list.map((log) => formatSet(exercise, { ...log, distance: log.set.distance, seconds: log.set.seconds })).join(', '),
         session,
         sets: list,
     }));

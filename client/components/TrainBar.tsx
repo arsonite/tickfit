@@ -25,6 +25,8 @@ import { useNow } from '@/hooks/useNow';
 // Utility
 import { clock, hasOpenRest, isRunning } from '@/tools/training';
 
+import { Icon } from '@/components/Icon';
+
 // Types
 import type { iSession, iSet } from '@/types';
 
@@ -101,7 +103,7 @@ export const TrainBar = ({ autoStart, data, defaultRest, describe, next, onFinis
                         <span className='trainbar__what'>{describe(running)}</span>
                     </div>
                     <button className='trainbar__go' onClick={() => onFinish(running)}>
-                        Finish set ✓
+                        Finish set <Icon name='check' />
                     </button>
                 </>
             ) : (
@@ -132,7 +134,7 @@ export const TrainBar = ({ autoStart, data, defaultRest, describe, next, onFinis
 
                     {next && (
                         <button className='trainbar__go' title={describe(next)} onClick={() => data.training.startSet(next.id)}>
-                            ▶ {describe(next)}
+                            <Icon name='play' /> {describe(next)}
                         </button>
                     )}
                 </>
