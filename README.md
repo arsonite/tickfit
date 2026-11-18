@@ -69,9 +69,13 @@
 ```sh
 cp .env.template .env
 scripts/install
-scripts/launch-server   # HSDB server on TICKFIT_PORT
-scripts/launch-client   # Vite on TICKFIT_CLIENT_PORT
+scripts/start all       # server (background) + client (foreground)
+scripts/start server    # HSDB server on TICKFIT_PORT
+scripts/start client    # Vite on TICKFIT_CLIENT_PORT
 ```
+
+Run it from the teatype venv, the command comes first (`scripts/start all --detached`). A start first stops the
+earlier server/client of this checkout (matched by path), so restarting never leaves a stale process behind.
 
 | Variable             | Meaning                                                              |
 | -------------------- | -------------------------------------------------------------------- |
