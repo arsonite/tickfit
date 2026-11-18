@@ -22,7 +22,9 @@ from .WorkoutExercise import WorkoutExercise
 # The line of a workout as done on one day: which of main and alternatives was chosen
 class SessionExercise(HSDBModel):
     rev     = HSDBAttribute(int, description='Save timestamp (ms) of the last write by a client, set by the sync')
-    chosen  = HSDBRelation.ManyToOne(WorkoutExercise, required=True)
+    # The id of a WorkoutExercise (the slot itself or an alternative of it). Not a relation: HSDB indexes relations per pair of
+    # models, so a second one to WorkoutExercise next to slot overwrites it on create and on restore
+    chosen  = HSDBAttribute(str, description='Id of the chosen WorkoutExercise, the slot or one of its alternatives')
     notes   = HSDBAttribute(str, description='Comment of this day, e.g. the rack spot')
     session = HSDBRelation.ManyToOne(Session, required=True)
     slot    = HSDBRelation.ManyToOne(WorkoutExercise, required=True)

@@ -25,6 +25,7 @@
   <li><a href="#about">About</a></li>
   <li><a href="#getting-started">Getting started</a></li>
   <li><a href="#migrations">Migrations</a></li>
+  <li><a href="#importing-old-sheets">Importing old sheets</a></li>
   <li><a href="#contributing">Contributing</a></li>
   <li><a href="#license">License</a></li>
   <li><a href="#contact">Contact</a></li>
@@ -53,6 +54,10 @@
 -   **Training log**: reps (or minutes), kg, drop/partial/assisted sets, a comment per exercise (rack spot, seat height ...) and notes per day
 -   **Last time on top**: each exercise shows what you did in the last completed session of the same workout, and starts with those values
 
+**Plan mode and train mode**: a session opens in plan mode (edit the workout, fill in values afterwards). "Start training" switches to train mode with a clock that runs from a start time kept on the server (`Session.started_at`, unix ms), so a reload or another device recalculates it. Each set has a timer (start, finish), and the rest between sets is started by you after a set ("Rest", length from the workout's rest time). No rest is offered between the lines of a superset, only after its round. Start and end of every set, drop set, partial and rest are stored on the `SetLog` rows (`started_at`, `ended_at`, `rest_started_at`, `rest_ended_at`) for later stats, only the clocks are shown.
+
+**Workout versions**: editing a workout that was trained already does not change the past. It becomes a new version (same `family`), the old one is archived and keeps its sessions; planned sessions and plan days move to the new version. "Last time" and the stats are looked up by family.
+
 **Offline first**: everything is read and written on the device (IndexedDB). Without backend or internet the app keeps working and shows "Offline, N changes kept on this device". As soon as the backend is reachable again it syncs by itself (on open, on reconnect, on focus, and every 15 s while offline), then pushes each change right away. Sync is `@teatype/sync` in `auto` mode; conflicts are last write wins.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
@@ -75,7 +80,25 @@ scripts/launch-client   # Vite on TICKFIT_CLIENT_PORT
 | `TICKFIT_BASE_PATH`  | `/` standalone, `/tickfit/` when served inside homepie (shows a back-to-hub link) |
 | `TICKFIT_DATA_PATH`  | Where the HSDB data lives, empty for the default                     |
 
-An empty week offers "Add the example plan", the full-body plan of the old spreadsheet.
+An empty week offers "Add the example plan", the full-body plan of the old spreadsheet. Do not use it after seeding the exercises (see below), it adds its own copies of them.
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+<!-- IMPORT -->
+
+## Importing old sheets
+
+`scripts/data/` brings the old spreadsheets in. The server has to run. Only `openpyxl` is needed (`pip install -r scripts/data/requirements.txt`), the base URL comes from `TICKFIT_URL` (default `http://127.0.0.1:$TICKFIT_PORT`), and every script has `--dry-run` (writes nothing) and `--url`.
+
+```sh
+cd scripts/data
+python download_sheets.py <link-or-id> ...      # link-shared Google Sheets -> sheets/*.xlsx (--list, --folder <id> --api-key <key>)
+python parse_sheets.py                          # sheets/*.xlsx -> parsed/*.json, one per week (--dump to see the raw cells, --year)
+python seed_exercises.py                        # the exercise catalogue: exercises.json plus every exercise found in parsed/
+python import_history.py                        # workouts (as versions), sessions, sets, and a plan if there is none
+```
+
+`aliases.json` maps names used in the sheets to the names of the catalogue. The import is repeatable: workouts are reused when their lines match, a changed workout becomes a new version, and a date that has a session already is skipped. The parser was written against the empty template, so expect to adjust it (and `aliases.json`) on the first real files; `parse_sheets.py --dump` shows what it reads. Any other source (e.g. a PDF reader) can write the same week JSON into `parsed/`.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 

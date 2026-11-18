@@ -91,11 +91,3 @@ class Api:
     def patch(self, model: str, entry_id: str, data: dict):
         if not self.dry_run:
             self.request('PATCH', f'/{model}/{entry_id}', data)
-
-    def update(self, model: str, changes: list):
-        """changes: [(id, data)], in chunks."""
-        for start in range(0, 0 if self.dry_run else len(changes), 200):
-            result = self.request('POST', f'/{model}/bulk', {'update': [{'id': i, 'data': d} for i, d in changes[start:start + 200]]})['update']
-            for item in result:
-                if not item.get('ok'):
-                    raise SystemExit(f'{model}: {item.get("error")}')

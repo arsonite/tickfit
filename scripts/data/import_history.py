@@ -161,10 +161,8 @@ class Importer:
                 chosen = self.slots[workout['id']]['alts'][main['id']].get(canonical(line['chosen'], self.aliases).casefold()) if line['chosen'] else None
                 wanted.append((session, main, chosen or main, line))
         entries = self.api.create('SessionExercise', [{
-            'session': session['id'], 'slot': main['id'], 'chosen': main['id'], 'notes': split_notes(line['notes'])[1], 'rev': self.now,
+            'session': session['id'], 'slot': main['id'], 'chosen': chosen['id'], 'notes': split_notes(line['notes'])[1], 'rev': self.now,
         } for session, main, chosen, line in wanted])
-        # HSDB keeps one relation per pair of models on create, so slot and chosen (both WorkoutExercise) only differ after an update
-        self.api.update('SessionExercise', [(entry['id'], {'chosen': chosen['id']}) for entry, (_, main, chosen, _) in zip(entries, wanted) if chosen is not main])
         sets = []
         for entry, (session, _, _, line) in zip(entries, wanted):
             for position, value in enumerate(v for v in line['values'] if v['disabled'] or v['value'] is not None or v['weight'] is not None):
