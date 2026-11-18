@@ -252,3 +252,20 @@ p {
     color: var(--text-primary);
     font: inherit;
 }
+
+.accent-picker {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+
+    input[type='color'] {
+        width: 40px;
+        height: 32px;
+        padding: 2px;
+
+        background: var(--bg-tertiary);
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-sm);
+        cursor: pointer;
+    }
+}

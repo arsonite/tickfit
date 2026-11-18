@@ -42,16 +42,12 @@ import {
     slotCollection,
     workoutCollection,
 } from '@/sync';
-import { addDays, mondayOf, today } from '@/tools/dates';
-import { extend, realign, shiftFrom, swap } from '@/tools/schedule';
+import { today, weekDays } from '@/tools/dates';
 import { EXERCISES, PLAN, WORKOUTS } from '@/tools/seed';
-import { familyOf } from '@/tools/training';
+import { familyOf, isTrained } from '@/tools/training';
 
 // Types
-import type { iChanges } from '@/tools/schedule';
 import type { iEntry, iExercise, iPlan, iPlanDay, iRow, iSession, iSet, iSlot, iWorkout } from '@/types';
-
-const HORIZON_WEEKS = 26; // How far ahead the schedule is written
 
 /** What the device had saved: one list per table and the sync meta, nothing on a first start */
 type tStored = Record<string, unknown>;
@@ -66,10 +62,10 @@ const STORED_KEYS = [...COLLECTIONS.map((collection) => collection.name), 'sync'
 const listOf = <T,>(stored: tStored, name: string): T[] => (stored[name] as T[] | undefined) ?? [];
 
 /**
- * Everything the app shows: the tables of the plan and the log, the schedule that is kept up to date on top of
- * them, and the changes the views make. All of it is on the device and changes are made there at once. The sync
- * (auto mode of @teatype/sync) sends them to the server whenever it can be reached, no matter if that is right away
- * or hours later, and brings in what other devices did.
+ * Everything the app shows: the tables of the plan and the log, and the changes the views make. All of it is on the
+ * device and changes are made there at once. The sync (auto mode of @teatype/sync) sends them to the server whenever
+ * it can be reached, no matter if that is right away or hours later, and brings in what other devices did.
+ * Nothing is scheduled by itself: a day is on the calendar because it was put there, by hand or with a plan.
  */
 const useTickfit = ({ error: toastError, info, success }: iUseTeaToastReturn, stored: tStored) => {
     const onError = useCallback((error: unknown) => void toastError(describe(error)), [toastError]);
@@ -143,23 +139,14 @@ const useTickfit = ({ error: toastError, info, success }: iUseTeaToastReturn, st
     const trainingSession = sessions.rows.find((session) => session.status === 'planned' && session.started_at && !session.finished_at);
 
     const activePlan = plans.rows.find((plan) => plan.active);
-    const cycleOf = useCallback(
-        (plan: string) =>
-            planDays
-                .current()
-                .filter((day) => day.plan === plan)
-                .sort((a, b) => a.position - b.position)
-                .map((day) => day.workout),
-        [planDays],
-    );
 
-    /** The main lines of a workout in their order, each with the alternatives to it */
+    /** The main lines of a workout, the warm-up first, each with the alternatives to it */
     const linesOf = useCallback(
         (workout: string) => {
             const own = slots.rows.filter((slot) => slot.workout === workout);
             return own
                 .filter((slot) => !slot.alternative_of)
-                .sort((a, b) => a.position - b.position)
+                .sort((a, b) => Number(Boolean(b.warmup)) - Number(Boolean(a.warmup)) || a.position - b.position)
                 .map((main) => ({
                     main,
                     alternatives: own.filter((slot) => slot.alternative_of === main.id).sort((a, b) => a.position - b.position),
@@ -167,8 +154,6 @@ const useTickfit = ({ error: toastError, info, success }: iUseTeaToastReturn, st
         },
         [slots.rows],
     );
-
-    const isRest = useCallback((workout: string) => workoutById.get(workout)?.kind === 'rest', [workoutById]);
 
     // ---- Removing, with what hangs on it
 
@@ -264,109 +249,69 @@ const useTickfit = ({ error: toastError, info, success }: iUseTeaToastReturn, st
         [exercises, removeSlots, slots],
     );
 
-    // ---- The schedule
-
-    const apply = useCallback(
-        (changes: iChanges) => {
-            if (changes.remove.length) {
-                removeSessions(changes.remove);
-            }
-            changes.move.forEach((move) => sessions.patch(move.id, { date: move.date }));
-            if (changes.create.length) {
-                sessions.addMany(changes.create.map((draft) => ({ ...draft, status: 'planned' as const })));
-            }
-        },
-        [removeSessions, sessions],
-    );
-
-    const upcoming = useCallback((from: string) => sessions.current().filter((session) => session.status === 'planned' && session.date >= from), [sessions]);
-
-    /** Moves missed workouts to today and writes the schedule of the active plan up to a day */
-    const ensure = useCallback(
-        (until: string) => {
-            // Another device may have written the schedule meanwhile, it is looked at after the first sync
-            if (!activePlan || load !== 'ready') {
-                return;
-            }
-            const now = today();
-            const changes = realign(sessions.current(), now, isRest);
-            if (changes.move.length || changes.remove.length) {
-                apply(changes);
-                const missed = changes.move.filter((move) => move.date >= now).length;
-                info(missed ? 'Missed workouts were moved to the next free days' : 'Missed rest days were dropped');
-            }
-            const cap = addDays(now, HORIZON_WEEKS * 7);
-            const drafts = extend(sessions.current(), cycleOf(activePlan.id), until > cap ? cap : until, mondayOf(now));
-            if (drafts.length) {
-                sessions.addMany(drafts.map((draft) => ({ ...draft, status: 'planned' as const })));
-            }
-        },
-        [activePlan, apply, cycleOf, info, isRest, load, sessions],
-    );
-
-    /** Starts the schedule over from today with the first day of a plan */
-    const restart = useCallback(
-        (plan: string, until: string) => {
-            const now = today();
-            removeSessions(upcoming(now).map((session) => session.id));
-            const kept = sessions.current().filter((session) => session.date >= now).map((session) => session.date).sort();
-            const start = kept.length ? addDays(kept[kept.length - 1], 1) : now;
-            const drafts = extend([], cycleOf(plan), until, start);
-            sessions.addMany(drafts.map((draft) => ({ ...draft, status: 'planned' as const })));
-        },
-        [cycleOf, removeSessions, sessions, upcoming],
-    );
+    // ---- The calendar: days are put there by hand, nothing is scheduled by itself
 
     const activate = useCallback(
-        (id: string) => {
-            plans.current().forEach((plan) => plan.active !== (plan.id === id) && plans.patch(plan.id, { active: plan.id === id }));
-            restart(id, addDays(mondayOf(today()), 13));
-        },
-        [plans, restart],
+        (id: string) => plans.current().forEach((plan) => plan.active !== (plan.id === id) && plans.patch(plan.id, { active: plan.id === id })),
+        [plans],
     );
-
-    /** The schedule of the active plan is written again, after its days were changed */
-    const rebuild = useCallback(() => {
-        if (activePlan) {
-            activate(activePlan.id);
-            success('Upcoming days were rebuilt from the plan');
-        }
-    }, [activate, activePlan, success]);
 
     const removePlan = useCallback(
         (id: string) => {
-            if (plans.current().find((plan) => plan.id === id)?.active) {
-                removeSessions(upcoming(today()).map((session) => session.id));
-            }
             planDays.remove(planDays.current().filter((day) => day.plan === id).map((day) => day.id));
             plans.remove([id]);
         },
-        [planDays, plans, removeSessions, upcoming],
+        [planDays, plans],
     );
 
+    /** Moves a day to another date, the day that is there changes places with it. Days that were trained stay. */
     const moveDay = useCallback(
-        (id: string, delta: number) => {
-            const changes = swap(sessions.current(), id, delta);
-            if (changes) {
-                apply(changes);
-            } else {
-                info('That day is already done');
+        (id: string, date: string) => {
+            const mine = sessions.current().find((session) => session.id === id);
+            if (!mine || mine.date === date) {
+                return;
+            }
+            const other = sessions.current().find((session) => session.date === date);
+            if (isTrained(mine) || isTrained(other)) {
+                info('A day that was trained stays where it is');
+                return;
+            }
+            sessions.patch(id, { date });
+            if (other) {
+                sessions.patch(other.id, { date: mine.date });
             }
         },
-        [apply, sessions, info],
+        [info, sessions],
     );
 
-    const shiftDay = useCallback(
-        (id: string, delta: 1 | -1) => {
-            const changes = shiftFrom(sessions.current(), id, delta);
-            if (changes) {
-                apply(changes);
+    /** Puts the days of a plan on the free days of a week, in their order from Monday. Days that are there are left alone. */
+    const applyPlan = useCallback(
+        (plan: string, monday: string) => {
+            const days = planDays.current().filter((day) => day.plan === plan).sort((a, b) => a.position - b.position);
+            const taken = new Set(sessions.current().map((session) => session.date));
+            const drafts = weekDays(monday)
+                .map((date, index) => ({ date, day: days[index] }))
+                .filter(({ date, day }) => day && !taken.has(date))
+                .map(({ date, day }) => ({ date, plan_day: -1, status: 'planned' as const, workout: day.workout }));
+            sessions.addMany(drafts);
+            if (drafts.length) {
+                success(`${drafts.length} day${drafts.length > 1 ? 's' : ''} added`);
             } else {
-                info('The day before is not free');
+                info('Every day of the week has something already');
             }
         },
-        [apply, sessions, info],
+        [info, planDays, sessions, success],
     );
+
+    // What an older version of the app wrote ahead: days of a plan that nobody put there, from today on
+    const isAutoPlanned = (session: iSession): boolean => session.status === 'planned' && !session.started_at && (session.plan_day ?? -1) >= 0 && session.date >= today();
+    const autoPlanned = sessions.rows.filter(isAutoPlanned).length;
+
+    const clearAutoPlanned = useCallback(() => {
+        const ids = sessions.current().filter(isAutoPlanned).map((session) => session.id);
+        removeSessions(ids);
+        success(`${ids.length} day${ids.length === 1 ? '' : 's'} removed`);
+    }, [removeSessions, sessions, success]);
 
     const addDay = useCallback((date: string, workout: string) => sessions.add({ date, plan_day: -1, status: 'planned', workout }), [sessions]);
 
@@ -422,20 +367,20 @@ const useTickfit = ({ error: toastError, info, success }: iUseTeaToastReturn, st
 
         activate,
         addDay,
+        applyPlan,
+        autoPlanned,
+        clearAutoPlanned,
         editable,
-        ensure,
         isLocked,
         linesOf,
         moveDay,
         onError,
-        rebuild,
         removeExercise,
         removePlan,
         removeSessions,
         removeSlots,
         removeWorkout,
         seed,
-        shiftDay,
     };
 };
 

@@ -43,7 +43,7 @@ interface iWorkout extends iRow {
     notes?: string;
     rest_seconds?: number;
     version?: number;
-    warmup?: string;
+    warmup?: string; // Old free text, replaced by lines that have warmup set
 }
 
 // A line of a workout, an alternative has the main line in alternative_of
@@ -55,7 +55,8 @@ interface iSlot extends iRow {
     rep_max?: number;
     rep_min?: number;
     sets: number;
-    superset?: boolean;
+    superset?: boolean; // Done in turns with the line above
+    warmup?: boolean; // A line of the warm-up, shown before the others
     workout: string;
 }
 

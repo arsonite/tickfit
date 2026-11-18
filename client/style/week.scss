@@ -159,3 +159,67 @@
         }
     }
 }
+
+.week--dragging {
+    cursor: grabbing;
+    user-select: none;
+}
+
+.week__arrow {
+    display: inline-flex;
+    border-radius: var(--radius-md);
+
+    &--over {
+        outline: 2px solid var(--accent);
+    }
+}
+
+.day {
+    // The handle: the page must not scroll instead while it is dragged with a finger
+    &__grip {
+        padding: 2px 4px;
+
+        background: none;
+        border: none;
+        border-radius: var(--radius-sm);
+        color: var(--text-tertiary);
+        cursor: grab;
+        font-size: 18px;
+        line-height: 1;
+        touch-action: none;
+
+        &:hover {
+            color: var(--text-primary);
+        }
+    }
+
+    &--lifted {
+        opacity: 0.4;
+    }
+
+    &--over {
+        background: var(--accent-glow);
+        border-color: var(--accent);
+    }
+
+    &--blocked {
+        border-color: var(--danger);
+        cursor: not-allowed;
+    }
+}
+
+// The day that is dragged, under the pointer
+.day-ghost {
+    position: fixed;
+    z-index: 100;
+
+    padding: 8px 14px;
+
+    background: var(--accent);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow);
+    color: #000;
+    font-weight: 600;
+    pointer-events: none;
+    transform: translate(-50%, -120%);
+}

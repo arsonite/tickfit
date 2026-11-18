@@ -26,4 +26,4 @@ class Workout(HSDBModel):
     notes        = HSDBAttribute(str)
     rest_seconds = HSDBAttribute(int, description='Pause between sets')
     version      = HSDBAttribute(int, description='1 for the first, a changed workout that was trained already becomes a new version')
-    warmup       = HSDBAttribute(str)
+    warmup       = HSDBAttribute(str, description='Old free text, a warm-up is lines of the workout with warmup set now')

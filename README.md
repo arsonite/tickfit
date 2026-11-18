@@ -47,14 +47,14 @@
 ## About
 
 -   **Exercises** with a picture, counted in reps, minutes or meters, with or without weight
--   **Workouts** made of exercises, each line with sets, a rep range, a superset flag and alternatives
--   **Plans** of days that repeat; the calendar weeks fill themselves from the active plan
--   **Missed days realign**: an unfinished workout from the past moves to today, the following days make room. Rest days are dropped
--   **Shift by hand**: a day earlier or later, push or pull all following days, skip, remove
+-   **Workouts** made of exercises, each line with sets, a rep range, a superset flag and alternatives. The warm-up is its own group of exercise lines (with alternatives), not text
+-   **Plans** of up to 7 days. Nothing is scheduled by itself: set a workout on a day, or use "Add a plan" to fill the free days of one week (Monday first)
+-   **Shift by drag and drop**: drag a day (⠿ handle, works by touch too) onto another day to move or swap it, or onto the ‹ / › arrows to move it a week. Nothing realigns automatically; days can also be moved a day earlier or later, skipped or removed from the menu
+-   **Settings** (device-local): light mode, accent colour, default rest, vibration, keep screen awake, last-week row, sync and clean-up of old auto-planned days
 -   **Training log**: reps (or minutes), kg, drop/partial/assisted sets, a comment per exercise (rack spot, seat height ...) and notes per day
 -   **Last time on top**: each exercise shows what you did in the last completed session of the same workout, and starts with those values
 
-**Plan mode and train mode**: a session opens in plan mode (edit the workout, fill in values afterwards). "Start training" switches to train mode with a clock that runs from a start time kept on the server (`Session.started_at`, unix ms), so a reload or another device recalculates it. Each set has a timer (start, finish), and the rest between sets is started by you after a set ("Rest", length from the workout's rest time). No rest is offered between the lines of a superset, only after its round. Start and end of every set, drop set, partial and rest are stored on the `SetLog` rows (`started_at`, `ended_at`, `rest_started_at`, `rest_ended_at`) for later stats, only the clocks are shown.
+**Plan mode and train mode**: a session opens in plan mode (edit the workout, fill in values afterwards). "Start training" switches to train mode with a clock that runs from a start time kept on the server (`Session.started_at`, unix ms), so a reload or another device recalculates it. The bar is green while a set runs ("Finish set") and purple in between: the transition, which is measured too, so you can pick any exercise and set freely (▶ on every set, or "Next" for the suggestion, e.g. when the gym is full). "Start rest" is always offered after a set and counts down the default rest. Supersets are framed and labelled A1/B1 ..., done in turns. Finished sets show their transition, set and rest time. Start and end of every set, drop set, partial and rest are stored on the `SetLog` rows (`started_at`, `ended_at`, `rest_started_at`, `rest_ended_at`) for later stats, only the clocks are shown.
 
 **Workout versions**: editing a workout that was trained already does not change the past. It becomes a new version (same `family`), the old one is archived and keeps its sessions; planned sessions and plan days move to the new version. "Last time" and the stats are looked up by family.
 

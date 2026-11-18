@@ -31,14 +31,17 @@ import { useNow } from '@/hooks/useNow';
 
 // Utility
 import { shortDate, today, weekdayName } from '@/tools/dates';
-import { clock, familyOf, isRunning } from '@/tools/training';
+import { clock, familyOf, interleave, isRunning, suggestNext, transitionBefore } from '@/tools/training';
 
 // Types
 import type { iEntry, iExercise, iSet, iSlot, tSetKind, tUnit } from '@/types';
 
 interface iSessionViewProps {
     data: tData;
+    /** Pause between sets (s) for a workout that has none of its own */
+    defaultRest: number;
     sessionId: string;
+    vibrate: boolean;
 
     onBack: () => void;
 }
@@ -46,6 +49,8 @@ interface iSessionViewProps {
 const UNIT_LABEL: Record<tUnit, string> = { meters: 'm', minutes: 'min', reps: 'reps' };
 const NEXT_KIND: Record<string, tSetKind> = { '': 'DS', DS: 'P', P: 'A', A: '' };
 const KIND_TITLE: Record<string, string> = { '': 'Normal set', A: 'Assisted', DS: 'Drop set', P: 'Partial' };
+
+const LETTERS = 'ABCDEFGH';
 
 const byPosition = (a: iSet, b: iSet) => a.position - b.position;
 
@@ -57,7 +62,7 @@ const target = (sets: number, min?: number, max?: number): string => {
 };
 
 /** One day of training: the lines of the workout, the sets of each, and what was done the time before */
-export const SessionView = ({ data, sessionId, onBack }: iSessionViewProps) => {
+export const SessionView = ({ data, defaultRest, sessionId, vibrate, onBack }: iSessionViewProps) => {
     const session = data.sessions.rows.find((row) => row.id === sessionId);
     const { entries, sets } = data;
     const started = useRef(false);
@@ -136,16 +141,33 @@ export const SessionView = ({ data, sessionId, onBack }: iSessionViewProps) => {
     const training = Boolean(session && session.status === 'planned' && session.started_at && !session.finished_at);
     const now = useNow(training);
 
-    // After which sets a rest makes sense: not between the lines of a superset, not after the last set
-    const restable = useMemo(() => {
-        const ids = new Set<string>();
-        const order = lines.flatMap(({ entry }, index) => {
-            const joined = Boolean(lines[index + 1]?.main.superset);
-            return sets.rows.filter((set) => set.session_exercise === entry?.id && !set.disabled).sort(byPosition).map((set) => ({ id: set.id, joined }));
+    // Consecutive lines marked as superset are one block, done in turns. The warm-up is a block of its own.
+    const blocks = useMemo(() => {
+        const result: { lines: typeof lines; warmup: boolean }[] = [];
+        lines.forEach((line) => {
+            const previous = result[result.length - 1];
+            if (previous && line.main.superset && previous.warmup === Boolean(line.main.warmup)) {
+                previous.lines.push(line);
+            } else {
+                result.push({ lines: [line], warmup: Boolean(line.main.warmup) });
+            }
         });
-        order.slice(0, -1).forEach((item) => !item.joined && ids.add(item.id));
-        return ids;
-    }, [lines, sets.rows]);
+        return result;
+    }, [lines]);
+
+    // The sets in the order they are likely done in, and how each is called
+    const { names, next, order } = useMemo(() => {
+        const names = new Map<string, string>();
+        const order = blocks.flatMap((block) => {
+            const perLine = block.lines.map(({ entry }) => sets.rows.filter((set) => set.session_exercise === entry?.id && !set.disabled).sort(byPosition));
+            block.lines.forEach(({ main, entry }, lineIndex) => {
+                const exercise = data.exerciseById.get(data.slotById.get(entry?.chosen ?? '')?.exercise ?? main.exercise)?.name ?? '?';
+                perLine[lineIndex].forEach((set, position) => names.set(set.id, `${exercise} · set ${block.lines.length > 1 ? LETTERS[lineIndex] : ''}${position + 1}`));
+            });
+            return interleave(perLine);
+        });
+        return { names, next: suggestNext(order), order };
+    }, [blocks, data.exerciseById, data.slotById, sets.rows]);
 
     if (!session) {
         return <div className='empty'>This day does not exist anymore.</div>;
@@ -196,149 +218,175 @@ export const SessionView = ({ data, sessionId, onBack }: iSessionViewProps) => {
                         </TeaButton>
                     )}
                 </p>
-                {workout?.warmup && <p className='session__warmup'>Warm-up: {workout.warmup}</p>}
+                {workout?.warmup && <p className='session__warmup'>Old warm-up note: {workout.warmup}</p>}
                 {workout?.notes && <p className='muted'>{workout.notes}</p>}
             </header>
 
-            {training && <TrainBar data={data} session={session} restable={restable} />}
+            {training && <TrainBar data={data} defaultRest={defaultRest} describe={(set) => names.get(set.id) ?? 'Set'} next={next} session={session} vibrate={vibrate} />}
 
-            {lines.map(({ main, alternatives, entry }, index) => {
-                if (!entry) {
-                    return null;
-                }
-                const choices = [main, ...alternatives];
-                const chosen = data.slotById.get(entry.chosen) ?? main;
-                const exercise = data.exerciseById.get(chosen.exercise);
-                const logged = sets.rows.filter((set) => set.session_exercise === entry.id).sort(byPosition);
-                const previous = describeSets(entry, exercise);
+            {blocks.map((block, blockIndex) => (
+                <div key={block.lines[0].main.id} className='block'>
+                    {block.warmup && blockIndex === 0 && <h2 className='session__section'>Warm-up</h2>}
+                    {!block.warmup && blocks[blockIndex - 1]?.warmup && <h2 className='session__section'>Workout</h2>}
+                    <div className={block.lines.length > 1 ? 'superset' : undefined}>
+                        {block.lines.length > 1 && <span className='superset__tag'>Superset · done in turns</span>}
+                        {block.lines.map(({ main, alternatives, entry }, lineIndex) => {
+                            if (!entry) {
+                                return null;
+                            }
+                            const choices = [main, ...alternatives];
+                            const chosen = data.slotById.get(entry.chosen) ?? main;
+                            const exercise = data.exerciseById.get(chosen.exercise);
+                            const logged = sets.rows.filter((set) => set.session_exercise === entry.id).sort(byPosition);
+                            const previous = describeSets(entry, exercise);
+                            const prefix = block.lines.length > 1 ? LETTERS[lineIndex] : '';
+                            const current = training && logged.some(isRunning);
+                            const upNext = training && !current && next?.session_exercise === entry.id;
+                            // Disabled sets do not take a number, so the numbers are those of the order they are done in
+                            const numbers = new Map(logged.filter((set) => !set.disabled).map((set, position) => [set.id, position + 1]));
 
-                return (
-                    <section key={entry.id} className={`line ${main.superset && index > 0 ? 'line--joined' : ''}`}>
-                        <div className='line__head'>
-                            <Thumb exercise={exercise} />
-                            <div className='line__title'>
-                                <strong>{exercise?.name ?? '?'}</strong>
-                                <span className='muted'>
-                                    {target(chosen.sets, chosen.rep_min, chosen.rep_max)} {UNIT_LABEL[exercise?.unit ?? 'reps']}
-                                    {main.superset && index > 0 ? ' · superset' : ''}
-                                </span>
-                                {(chosen.notes || exercise?.notes) && <span className='muted'>{[chosen.notes, exercise?.notes].filter(Boolean).join(' · ')}</span>}
-                            </div>
-                        </div>
+                            return (
+                                <section key={entry.id} className={`line ${current ? 'line--current' : ''} ${upNext ? 'line--next' : ''}`}>
+                                    <div className='line__head'>
+                                        {prefix && <span className='line__letter'>{prefix}</span>}
+                                        <Thumb exercise={exercise} />
+                                        <div className='line__title'>
+                                            <strong>{exercise?.name ?? '?'}</strong>
+                                            <span className='muted'>
+                                                {target(chosen.sets, chosen.rep_min, chosen.rep_max)} {UNIT_LABEL[exercise?.unit ?? 'reps']}
+                                            </span>
+                                            {(chosen.notes || exercise?.notes) && <span className='muted'>{[chosen.notes, exercise?.notes].filter(Boolean).join(' · ')}</span>}
+                                        </div>
+                                    </div>
 
-                        {choices.length > 1 && (
-                            <div className='chips'>
-                                {choices.map((choice) => (
-                                    <button
-                                        key={choice.id}
-                                        className={`chip ${choice.id === entry.chosen ? 'chip--on' : ''}`}
-                                        onClick={() => entries.patch(entry.id, { chosen: choice.id })}
-                                    >
-                                        {data.exerciseById.get(choice.exercise)?.name}
-                                        {choice.id === main.id ? '' : ' (alt)'}
-                                    </button>
-                                ))}
-                            </div>
-                        )}
-
-                        {previous && <div className='line__last'>Last: {previous}</div>}
-
-                        <div className='sets'>
-                            {logged.map((set, position) => (
-                                <div key={set.id} className={`set ${set.disabled ? 'set--off' : ''} ${set.done ? 'set--done' : ''}`}>
-                                    <span className='set__no'>{position + 1}</span>
-                                    <label>
-                                        <input
-                                            type='number'
-                                            inputMode='decimal'
-                                            min={0}
-                                            value={set.value || ''}
-                                            placeholder={UNIT_LABEL[exercise?.unit ?? 'reps']}
-                                            onChange={(event) => sets.patch(set.id, { value: number(event.target.value) })}
-                                        />
-                                    </label>
-                                    {exercise?.weighted && (
-                                        <label>
-                                            <input
-                                                type='number'
-                                                inputMode='decimal'
-                                                min={0}
-                                                step='any'
-                                                value={set.weight || ''}
-                                                placeholder='kg'
-                                                onChange={(event) => sets.patch(set.id, { weight: number(event.target.value) })}
-                                            />
-                                        </label>
+                                    {choices.length > 1 && (
+                                        <div className='chips'>
+                                            {choices.map((choice) => (
+                                                <button
+                                                    key={choice.id}
+                                                    className={`chip ${choice.id === entry.chosen ? 'chip--on' : ''}`}
+                                                    onClick={() => entries.patch(entry.id, { chosen: choice.id })}
+                                                >
+                                                    {data.exerciseById.get(choice.exercise)?.name}
+                                                    {choice.id === main.id ? '' : ' (alt)'}
+                                                </button>
+                                            ))}
+                                        </div>
                                     )}
-                                    <button
-                                        className={`mini ${set.kind ? 'mini--on' : ''}`}
-                                        title={KIND_TITLE[set.kind ?? '']}
-                                        onClick={() => sets.patch(set.id, { kind: NEXT_KIND[set.kind ?? ''] })}
-                                    >
-                                        {set.kind || '·'}
-                                    </button>
-                                    <button
-                                        className={`mini ${set.disabled ? 'mini--on' : ''}`}
-                                        title='Skipped on purpose'
-                                        onClick={() => sets.patch(set.id, { disabled: !set.disabled })}
-                                    >
-                                        ✕
-                                    </button>
-                                    {!training ? (
+
+                                    {previous && <div className='line__last'>Last: {previous}</div>}
+
+                                    <div className='sets'>
+                                        {logged.map((set) => {
+                                            const ran = Boolean(set.started_at && set.ended_at);
+                                            return (
+                                                <div key={set.id} className='set-row'>
+                                                    <div className={`set ${set.disabled ? 'set--off' : ''} ${set.done ? 'set--done' : ''} ${training && isRunning(set) ? 'set--current' : ''} ${training && next?.id === set.id ? 'set--next' : ''}`}>
+                                                        <span className='set__no'>{set.disabled ? '–' : `${prefix}${numbers.get(set.id)}`}</span>
+                                                        <label>
+                                                            <input
+                                                                type='number'
+                                                                inputMode='decimal'
+                                                                min={0}
+                                                                value={set.value || ''}
+                                                                placeholder={UNIT_LABEL[exercise?.unit ?? 'reps']}
+                                                                onChange={(event) => sets.patch(set.id, { value: number(event.target.value) })}
+                                                            />
+                                                        </label>
+                                                        {exercise?.weighted && (
+                                                            <label>
+                                                                <input
+                                                                    type='number'
+                                                                    inputMode='decimal'
+                                                                    min={0}
+                                                                    step='any'
+                                                                    value={set.weight || ''}
+                                                                    placeholder='kg'
+                                                                    onChange={(event) => sets.patch(set.id, { weight: number(event.target.value) })}
+                                                                />
+                                                            </label>
+                                                        )}
+                                                        <button
+                                                            className={`mini ${set.kind ? 'mini--on' : ''}`}
+                                                            title={KIND_TITLE[set.kind ?? '']}
+                                                            onClick={() => sets.patch(set.id, { kind: NEXT_KIND[set.kind ?? ''] })}
+                                                        >
+                                                            {set.kind || '·'}
+                                                        </button>
+                                                        <button
+                                                            className={`mini ${set.disabled ? 'mini--on' : ''}`}
+                                                            title='Skipped on purpose'
+                                                            onClick={() => sets.patch(set.id, { disabled: !set.disabled })}
+                                                        >
+                                                            ✕
+                                                        </button>
+                                                        {!training ? (
+                                                            <button
+                                                                className={`mini ${set.done ? 'mini--ok' : ''}`}
+                                                                title='Done'
+                                                                onClick={() => sets.patch(set.id, { done: !set.done })}
+                                                            >
+                                                                ✓
+                                                            </button>
+                                                        ) : set.disabled ? null : isRunning(set) ? (
+                                                            <button className='mini mini--wide mini--run' title='Finish the set' onClick={() => data.training.finishSet(set.id)}>
+                                                                {clock(now - (set.started_at ?? now))} ✓
+                                                            </button>
+                                                        ) : set.done ? (
+                                                            <button className='mini mini--wide mini--ok' title='Undo' onClick={() => data.training.undoSet(set.id)}>
+                                                                {ran ? clock((set.ended_at ?? 0) - (set.started_at ?? 0)) : ''} ✓
+                                                            </button>
+                                                        ) : (
+                                                            <button className='mini mini--wide mini--start' title='Start this set' onClick={() => data.training.startSet(set.id)}>
+                                                                ▶
+                                                            </button>
+                                                        )}
+                                                        <button className='mini' title='Remove set' onClick={() => sets.remove([set.id])}>
+                                                            −
+                                                        </button>
+                                                    </div>
+                                                    {ran && (
+                                                        <div className='set__times'>
+                                                            <span className='set__transition'>Transition {clock(transitionBefore(set, order, session.started_at ?? 0))}</span>
+                                                            <span>Set {clock((set.ended_at ?? 0) - (set.started_at ?? 0))}</span>
+                                                            {Boolean(set.rest_started_at && set.rest_ended_at) && <span>Rest {clock((set.rest_ended_at ?? 0) - (set.rest_started_at ?? 0))}</span>}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
                                         <button
-                                            className={`mini ${set.done ? 'mini--ok' : ''}`}
-                                            title='Done'
-                                            onClick={() => sets.patch(set.id, { done: !set.done })}
+                                            className='link'
+                                            onClick={() => {
+                                                const prev = logged[logged.length - 1];
+                                                sets.add({
+                                                    disabled: false,
+                                                    done: false,
+                                                    kind: prev?.kind ?? '',
+                                                    position: (prev?.position ?? -1) + 1,
+                                                    session: session.id,
+                                                    session_exercise: entry.id,
+                                                    value: prev?.value ?? 0,
+                                                    weight: prev?.weight ?? 0,
+                                                });
+                                            }}
                                         >
-                                            ✓
+                                            + Set
                                         </button>
-                                    ) : set.disabled ? null : isRunning(set) ? (
-                                        <button className='mini mini--wide mini--run' title='Finish the set' onClick={() => data.training.finishSet(set.id)}>
-                                            {clock(now - (set.started_at ?? now))} ✓
-                                        </button>
-                                    ) : set.done ? (
-                                        <button className='mini mini--wide mini--ok' title='Undo' onClick={() => data.training.undoSet(set.id)}>
-                                            {set.started_at && set.ended_at ? clock(set.ended_at - set.started_at) : ''} ✓
-                                        </button>
-                                    ) : (
-                                        <button className='mini mini--wide' title='Start the set' onClick={() => data.training.startSet(set.id)}>
-                                            ▶
-                                        </button>
-                                    )}
-                                    <button className='mini' title='Remove set' onClick={() => sets.remove([set.id])}>
-                                        −
-                                    </button>
-                                </div>
-                            ))}
-                            <button
-                                className='link'
-                                onClick={() => {
-                                    const prev = logged[logged.length - 1];
-                                    sets.add({
-                                        disabled: false,
-                                        done: false,
-                                        kind: prev?.kind ?? '',
-                                        position: (prev?.position ?? -1) + 1,
-                                        session: session.id,
-                                        session_exercise: entry.id,
-                                        value: prev?.value ?? 0,
-                                        weight: prev?.weight ?? 0,
-                                    });
-                                }}
-                            >
-                                + Set
-                            </button>
-                        </div>
+                                    </div>
 
-                        <input
-                            className='line__comment'
-                            placeholder='Comment, e.g. rack spot, seat height'
-                            value={entry.notes ?? ''}
-                            onChange={(event) => entries.patch(entry.id, { notes: event.target.value })}
-                        />
-                    </section>
-                );
-            })}
+                                    <input
+                                        className='line__comment'
+                                        placeholder='Comment, e.g. rack spot, seat height'
+                                        value={entry.notes ?? ''}
+                                        onChange={(event) => entries.patch(entry.id, { notes: event.target.value })}
+                                    />
+                                </section>
+                            );
+                        })}
+                    </div>
+                </div>
+            ))}
 
             {!data.linesOf(session.workout).length && <div className='empty'>This workout has no exercises yet.</div>}
 

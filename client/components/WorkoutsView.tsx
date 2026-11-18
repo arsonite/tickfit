@@ -77,8 +77,8 @@ export const WorkoutsView = ({ data }: iWorkoutsViewProps) => {
         if (!workout) {
             return;
         }
-        const copy = data.workouts.add({ focus: workout.focus, kind: workout.kind, name: `${workout.name} (copy)`, notes: workout.notes, rest_seconds: workout.rest_seconds, warmup: workout.warmup });
-        const mains = data.slots.addMany(lines.map(({ main }) => ({ exercise: main.exercise, notes: main.notes, position: main.position, rep_max: main.rep_max, rep_min: main.rep_min, sets: main.sets, superset: main.superset, workout: copy.id })));
+        const copy = data.workouts.add({ focus: workout.focus, kind: workout.kind, name: `${workout.name} (copy)`, notes: workout.notes, rest_seconds: workout.rest_seconds });
+        const mains = data.slots.addMany(lines.map(({ main }) => ({ exercise: main.exercise, notes: main.notes, position: main.position, rep_max: main.rep_max, rep_min: main.rep_min, sets: main.sets, superset: main.superset, warmup: main.warmup, workout: copy.id })));
         data.slots.addMany(
             lines.flatMap(({ alternatives }, index) =>
                 alternatives.map((slot) => ({ alternative_of: mains[index].id, exercise: slot.exercise, position: slot.position, rep_max: slot.rep_max, rep_min: slot.rep_min, sets: slot.sets, workout: copy.id })),
@@ -108,12 +108,12 @@ export const WorkoutsView = ({ data }: iWorkoutsViewProps) => {
         }
     };
 
-    const addLine = () => {
+    const addLine = (warmup: boolean) => {
         if (!workout || !exercises.length) {
             return;
         }
-        const last = lines[lines.length - 1]?.main.position ?? -1;
-        change((id) => data.slots.add({ exercise: exercises[0].id, position: last + 1, sets: 3, workout: id }));
+        const last = Math.max(-1, ...lines.map(({ main }) => main.position));
+        change((id) => data.slots.add({ exercise: exercises[0].id, position: last + 1, rep_max: warmup ? 10 : 0, rep_min: warmup ? 5 : 0, sets: warmup ? 1 : 3, warmup, workout: id }));
     };
 
     const addAlternative = (main: iSlot, count: number) =>
@@ -133,16 +133,49 @@ export const WorkoutsView = ({ data }: iWorkoutsViewProps) => {
         }
     };
 
-    const move = (index: number, delta: number) => {
-        const other = lines[index + delta];
+    // Lines are moved within their group, the warm-up stays before the others
+    const move = (group: typeof lines, index: number, delta: number) => {
+        const other = group[index + delta];
         if (other) {
-            const [here, there] = [lines[index].main, other.main];
+            const [here, there] = [group[index].main, other.main];
             change((_, slot) => {
                 data.slots.patch(slot(here.id), { position: there.position });
                 data.slots.patch(slot(there.id), { position: here.position });
             });
         }
     };
+
+    const warmupLines = lines.filter(({ main }) => main.warmup);
+    const mainLines = lines.filter(({ main }) => !main.warmup);
+
+    const renderLine = ({ main, alternatives }: (typeof lines)[number], index: number, group: typeof lines) => (
+        <div key={main.id} className='slot'>
+            <div className='slot__row'>
+                <Thumb exercise={data.exerciseById.get(main.exercise)} />
+                <TeaSelect className='slot__exercise' value={main.exercise} options={exerciseOptions} onChange={(event) => editSlot(main.id, { exercise: event.target.value })} />
+                <TeaInput className='slot__num' label='Sets' type='number' min={1} value={main.sets || ''} onChange={(event) => editSlot(main.id, { sets: number(event.target.value) || 1 })} />
+                <TeaInput className='slot__num' label='From' type='number' min={0} value={main.rep_min || ''} onChange={(event) => editSlot(main.id, { rep_min: number(event.target.value) })} />
+                <TeaInput className='slot__num' label='To' type='number' min={0} value={main.rep_max || ''} onChange={(event) => editSlot(main.id, { rep_max: number(event.target.value) })} />
+            </div>
+            <div className='slot__row'>
+                <TeaInput className='grow' placeholder='Notes, e.g. *includes drop sets' value={main.notes ?? ''} onChange={(event) => editSlot(main.id, { notes: event.target.value })} />
+                {index > 0 && <TeaCheckbox label='Superset with above' checked={!!main.superset} onChange={(superset) => editSlot(main.id, { superset })} />}
+                <button className='mini' title='Up' disabled={index === 0} onClick={() => move(group, index, -1)}>↑</button>
+                <button className='mini' title='Down' disabled={index === group.length - 1} onClick={() => move(group, index, 1)}>↓</button>
+                <button className='mini' title='Remove' onClick={() => void removeLine(main)}>✕</button>
+            </div>
+            {alternatives.map((alternative) => (
+                <div key={alternative.id} className='slot__row slot__row--alt'>
+                    <span className='muted'>or</span>
+                    <TeaSelect className='slot__exercise' value={alternative.exercise} options={exerciseOptions} onChange={(event) => editSlot(alternative.id, { exercise: event.target.value })} />
+                    <TeaInput className='slot__num' type='number' min={0} placeholder='From' value={alternative.rep_min || ''} onChange={(event) => editSlot(alternative.id, { rep_min: number(event.target.value) })} />
+                    <TeaInput className='slot__num' type='number' min={0} placeholder='To' value={alternative.rep_max || ''} onChange={(event) => editSlot(alternative.id, { rep_max: number(event.target.value) })} />
+                    <button className='mini' title='Remove alternative' onClick={() => dropSlot(alternative.id)}>✕</button>
+                </div>
+            ))}
+            <button className='link' disabled={!exercises.length} onClick={() => addAlternative(main, alternatives.length)}>+ Alternative</button>
+        </div>
+    );
 
     return (
         <div className='page page--split'>
@@ -174,40 +207,24 @@ export const WorkoutsView = ({ data }: iWorkoutsViewProps) => {
                         <TeaInput label='Focus' value={workout.focus ?? ''} onChange={(event) => edit({ focus: event.target.value })} />
                         <TeaInput label='Rest between sets (s)' type='number' min={0} value={workout.rest_seconds || ''} onChange={(event) => edit({ rest_seconds: number(event.target.value) })} />
                     </div>
-                    <TeaTextarea label='Warm-up' rows={2} value={workout.warmup ?? ''} onChange={(event) => edit({ warmup: event.target.value })} />
                     <TeaTextarea label='Notes' rows={2} value={workout.notes ?? ''} onChange={(event) => edit({ notes: event.target.value })} />
 
-                    <h2>Exercises</h2>
-                    {lines.map(({ main, alternatives }, index) => (
-                        <div key={main.id} className='slot'>
-                            <div className='slot__row'>
-                                <Thumb exercise={data.exerciseById.get(main.exercise)} />
-                                <TeaSelect className='slot__exercise' value={main.exercise} options={exerciseOptions} onChange={(event) => editSlot(main.id, { exercise: event.target.value })} />
-                                <TeaInput className='slot__num' label='Sets' type='number' min={1} value={main.sets || ''} onChange={(event) => editSlot(main.id, { sets: number(event.target.value) || 1 })} />
-                                <TeaInput className='slot__num' label='From' type='number' min={0} value={main.rep_min || ''} onChange={(event) => editSlot(main.id, { rep_min: number(event.target.value) })} />
-                                <TeaInput className='slot__num' label='To' type='number' min={0} value={main.rep_max || ''} onChange={(event) => editSlot(main.id, { rep_max: number(event.target.value) })} />
-                            </div>
-                            <div className='slot__row'>
-                                <TeaInput className='grow' placeholder='Notes, e.g. *includes drop sets' value={main.notes ?? ''} onChange={(event) => editSlot(main.id, { notes: event.target.value })} />
-                                <TeaCheckbox label='Superset with above' checked={!!main.superset} onChange={(superset) => editSlot(main.id, { superset })} />
-                                <button className='mini' title='Up' disabled={index === 0} onClick={() => move(index, -1)}>↑</button>
-                                <button className='mini' title='Down' disabled={index === lines.length - 1} onClick={() => move(index, 1)}>↓</button>
-                                <button className='mini' title='Remove' onClick={() => void removeLine(main)}>✕</button>
-                            </div>
-                            {alternatives.map((alternative) => (
-                                <div key={alternative.id} className='slot__row slot__row--alt'>
-                                    <span className='muted'>or</span>
-                                    <TeaSelect className='slot__exercise' value={alternative.exercise} options={exerciseOptions} onChange={(event) => editSlot(alternative.id, { exercise: event.target.value })} />
-                                    <TeaInput className='slot__num' type='number' min={0} placeholder='From' value={alternative.rep_min || ''} onChange={(event) => editSlot(alternative.id, { rep_min: number(event.target.value) })} />
-                                    <TeaInput className='slot__num' type='number' min={0} placeholder='To' value={alternative.rep_max || ''} onChange={(event) => editSlot(alternative.id, { rep_max: number(event.target.value) })} />
-                                    <button className='mini' title='Remove alternative' onClick={() => dropSlot(alternative.id)}>✕</button>
-                                </div>
-                            ))}
-                            <button className='link' disabled={!exercises.length} onClick={() => addAlternative(main, alternatives.length)}>+ Alternative</button>
-                        </div>
-                    ))}
+                    <h2>Warm-up <span className='muted'>exercises like the others, with the alternatives you pick from</span></h2>
+                    {workout.warmup && (
+                        <p className='muted'>
+                            Old note: “{workout.warmup}”{' '}
+                            <button className='link' onClick={() => data.workouts.patch(workout.id, { warmup: '' })}>Remove the note</button> once it is in the lines below.
+                        </p>
+                    )}
+                    {warmupLines.map(renderLine)}
                     <div className='editor__actions'>
-                        <TeaButton disabled={!exercises.length} onClick={addLine}>Add exercise</TeaButton>
+                        <TeaButton disabled={!exercises.length} onClick={() => addLine(true)}>Add warm-up</TeaButton>
+                    </div>
+
+                    <h2>Exercises</h2>
+                    {mainLines.map(renderLine)}
+                    <div className='editor__actions'>
+                        <TeaButton disabled={!exercises.length} onClick={() => addLine(false)}>Add exercise</TeaButton>
                         {!exercises.length && <span className='muted'>Create an exercise first.</span>}
                         <span className='grow' />
                         <TeaButton onClick={() => void duplicate()}>Duplicate</TeaButton>

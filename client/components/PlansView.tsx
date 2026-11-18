@@ -31,7 +31,7 @@ interface iPlansViewProps {
     data: tData;
 }
 
-/** The plans: the days that repeat, one workout each. The active plan fills the week. */
+/** The plans: up to seven days of a week, one workout each, put on the free days of a week with "Add a plan" in the calendar */
 export const PlansView = ({ data }: iPlansViewProps) => {
     const confirm = useConfirm();
     const [selected, setSelected] = useState<string | null>(null);
@@ -64,7 +64,7 @@ export const PlansView = ({ data }: iPlansViewProps) => {
         }
         const ok = await confirm({
             title: 'Delete plan',
-            message: plan.active ? `${plan.name} is the active plan. Its upcoming days are removed from the schedule.` : `Delete ${plan.name}?`,
+            message: `Delete ${plan.name}? Days that are on the calendar already stay.`,
             confirmText: 'Delete',
             variant: 'danger',
         });
@@ -84,7 +84,7 @@ export const PlansView = ({ data }: iPlansViewProps) => {
                 {plans.map((row) => (
                     <button key={row.id} className={`list__item ${row.id === plan?.id ? 'list__item--on' : ''}`} onClick={() => setSelected(row.id)}>
                         {row.name}
-                        {row.active && <span className='badge badge--done'>Active</span>}
+                        {row.active && <span className='badge badge--done'>Default</span>}
                     </button>
                 ))}
                 {!plans.length && <div className='empty'>No plans yet.</div>}
@@ -95,7 +95,7 @@ export const PlansView = ({ data }: iPlansViewProps) => {
                     <TeaInput label='Name' value={plan.name} onChange={(event) => data.plans.patch(plan.id, { name: event.target.value })} />
                     <TeaTextarea label='Notes' rows={2} value={plan.notes ?? ''} onChange={(event) => data.plans.patch(plan.id, { notes: event.target.value })} />
 
-                    <h2>Days <span className='muted'>repeat in this order</span></h2>
+                    <h2>Days <span className='muted'>Monday, Tuesday, … in this order</span></h2>
                     {days.map((day, index) => (
                         <div key={day.id} className='slot__row'>
                             <span className='day__no'>Day {ROMAN[index] ?? index + 1}</span>
@@ -106,17 +106,13 @@ export const PlansView = ({ data }: iPlansViewProps) => {
                         </div>
                     ))}
                     <div className='editor__actions'>
-                        <TeaButton disabled={!workouts.length} onClick={addDay}>Add day</TeaButton>
+                        <TeaButton disabled={!workouts.length || days.length >= 7} onClick={addDay}>Add day</TeaButton>
                         {!workouts.length && <span className='muted'>Create a workout first.</span>}
                     </div>
 
                     <div className='editor__actions'>
-                        {plan.active ? (
-                            <TeaButton onClick={data.rebuild}>Rebuild upcoming days</TeaButton>
-                        ) : (
-                            <TeaButton theme='filled' disabled={!days.length} onClick={() => data.activate(plan.id)}>Make active</TeaButton>
-                        )}
-                        <span className='muted'>{plan.active ? 'Changes of the days reach the schedule when rebuilt.' : 'The upcoming days follow this plan once it is active.'}</span>
+                        {!plan.active && <TeaButton onClick={() => data.activate(plan.id)}>Make default</TeaButton>}
+                        <span className='muted'>{plan.active ? 'This plan is the one offered first when adding a plan to a week.' : 'Nothing is put on the calendar by a plan itself.'}</span>
                         <span className='grow' />
                         <TeaButton theme='danger' onClick={() => void remove()}>Delete plan</TeaButton>
                     </div>

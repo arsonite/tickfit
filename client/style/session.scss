@@ -32,6 +32,15 @@
         font-size: 13px;
     }
 
+    &__section {
+        margin: 6px 0 -2px;
+
+        color: var(--text-secondary);
+        font-size: 13px;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+    }
+
     &__mode {
         display: flex;
         flex-wrap: wrap;
@@ -56,13 +65,30 @@
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
 
-    // Done in turns with the line above, so the two are drawn as one block
-    &--joined {
-        margin-top: -12px;
+    // The line that has a set running, and the one the next set is likely in
+    &--current {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 1px var(--accent);
+    }
 
-        border-top-left-radius: 0;
-        border-top-right-radius: 0;
-        border-top-style: dashed;
+    &--next {
+        border-color: var(--transition);
+    }
+
+    &__letter {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+
+        flex-shrink: 0;
+        width: 26px;
+        height: 26px;
+
+        background: var(--superset);
+        border-radius: 50%;
+        color: #fff;
+        font-size: 13px;
+        font-weight: 700;
     }
 
     &__head {
@@ -92,6 +118,34 @@
         font: inherit;
         font-size: 13px;
     }
+}
+
+// Lines that are done in turns, in one frame so it is clear they belong together
+.superset {
+    --superset: var(--warning);
+
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+
+    padding: 10px;
+
+    border: 2px solid var(--superset);
+    border-radius: calc(var(--radius-lg) + 4px);
+
+    &__tag {
+        color: var(--superset);
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+    }
+}
+
+.block {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
 }
 
 .chips {
@@ -124,10 +178,56 @@
     gap: 6px;
 }
 
+.set-row {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
 .set {
     display: flex;
     align-items: center;
     gap: 6px;
+
+    padding: 2px 4px;
+    margin: 0 -4px;
+
+    border: 1px solid transparent;
+    border-radius: var(--radius-md);
+
+    // The set that is running
+    &--current {
+        background: var(--accent-glow);
+        border-color: var(--accent);
+    }
+
+    // The one that is suggested next
+    &--next {
+        background: var(--transition-glow);
+        border-color: var(--transition);
+
+        .mini--start {
+            background: var(--transition);
+            border-color: var(--transition);
+            color: #fff;
+        }
+    }
+
+    &__times {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 12px;
+
+        padding-left: 24px;
+
+        color: var(--text-tertiary);
+        font-size: 12px;
+        font-variant-numeric: tabular-nums;
+    }
+
+    &__transition {
+        color: var(--transition);
+    }
 
     &--off input {
         opacity: 0.35;
@@ -183,6 +283,61 @@
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow);
 
+    // A set is running: green. Between the sets: purple, the transition that is timed as well.
+    &--set {
+        background: color-mix(in srgb, var(--accent) 16%, var(--bg-tertiary));
+    }
+
+    &--transition {
+        background: color-mix(in srgb, var(--transition) 18%, var(--bg-tertiary));
+        border-color: var(--transition);
+
+        .trainbar__go {
+            background: var(--transition);
+            color: #fff;
+        }
+
+        .trainbar__fill {
+            background: var(--transition-glow);
+        }
+    }
+
+    &__phase {
+        display: flex;
+        flex: 1;
+        flex-direction: column;
+        min-width: 0;
+    }
+
+    &__label {
+        font-size: 15px;
+        font-variant-numeric: tabular-nums;
+        font-weight: 600;
+    }
+
+    &__what {
+        overflow: hidden;
+
+        color: var(--text-secondary);
+        font-size: 12px;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    &__rest-btn {
+        height: 38px;
+        padding: 0 12px;
+
+        background: none;
+        border: 1px solid var(--transition);
+        border-radius: var(--radius-md);
+        color: var(--transition);
+        cursor: pointer;
+        font: inherit;
+        font-weight: 600;
+        white-space: nowrap;
+    }
+
     &__clock {
         font-size: 20px;
         font-variant-numeric: tabular-nums;
@@ -195,8 +350,14 @@
     }
 
     &__go {
-        flex: 1;
+        flex: 0 1 auto;
+        max-width: 45%;
         height: 38px;
+        padding: 0 14px;
+        overflow: hidden;
+
+        text-overflow: ellipsis;
+        white-space: nowrap;
 
         background: var(--accent);
         border: none;
@@ -210,7 +371,8 @@
     &__rest {
         position: relative;
         overflow: hidden;
-        flex: 1;
+        flex: 0 0 auto;
+        min-width: 110px;
 
         padding: 8px 12px;
 
@@ -257,5 +419,28 @@
 
     strong {
         font-variant-numeric: tabular-nums;
+    }
+}
+
+// On a phone the bar has two rows: the clock and what is going on, then the buttons
+.app--mobile .trainbar {
+    flex-wrap: wrap;
+    top: -16px;
+
+    &__phase {
+        flex-basis: 40%;
+    }
+
+    &__go {
+        flex: 1 1 100%;
+        max-width: none;
+    }
+
+    &__rest {
+        flex: 1 1 50%;
+    }
+
+    &__rest-btn {
+        flex-basis: 45%;
     }
 }

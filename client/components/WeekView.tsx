@@ -16,65 +16,69 @@
  */
 
 // React imports
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
 // TeaType
 import { TeaButton, TeaModal, TeaSelect, useConfirm } from '@teatype/components';
+import { usePointerDrag } from '@teatype/hooks/usePointerDrag';
 
 // Hooks
 import type { tData } from '@/hooks/useTickfit';
 
 // Utility
 import { ROMAN, addDays, calendarWeek, mondayOf, shortDate, today, weekDays, weekdayName } from '@/tools/dates';
+import { isTrained } from '@/tools/training';
 
 // Types
 import type { iSession } from '@/types';
 
 interface iWeekViewProps {
     data: tData;
+    showLastWeek: boolean;
 
     onNavigate: (view: 'plans') => void;
     onOpen: (sessionId: string) => void;
 }
 
-const MAX_WEEKS_AHEAD = 26;
+const MAX_WEEKS_AHEAD = 52;
 
 const STATUS_LABEL = { done: 'Done', planned: 'Planned', skipped: 'Skipped' };
 
-/** The calendar week: seven days with the workout of each, which can be moved around by hand */
-export const WeekView = ({ data, onNavigate, onOpen }: iWeekViewProps) => {
+/** The calendar week: seven days with the workout of each. Days are put there by hand or with a plan and moved by dragging. */
+export const WeekView = ({ data, onNavigate, onOpen, showLastWeek }: iWeekViewProps) => {
     const confirm = useConfirm();
     const [monday, setMonday] = useState(() => mondayOf(today()));
     const [menu, setMenu] = useState<string | null>(null); // The date whose actions are open
     const [adding, setAdding] = useState<string | null>(null);
     const [pick, setPick] = useState('');
+    const [applying, setApplying] = useState(false);
+    const [plan, setPlan] = useState('');
 
     const days = weekDays(monday);
-    const { ensure } = data;
     const now = today();
     const week = calendarWeek(monday);
-
-    // The schedule is written ahead of the week that is shown
-    useEffect(() => {
-        ensure(addDays(monday, 6));
-    }, [ensure, monday]);
-
-    if (!data.activePlan) {
-        return (
-            <div className='empty'>
-                <h2>No plan yet</h2>
-                <p className='muted'>The week fills itself from the plan you activate.</p>
-                <div className='empty__actions'>
-                    {!data.workouts.rows.length && <TeaButton theme='filled' onClick={data.seed}>Add the example plan</TeaButton>}
-                    <TeaButton onClick={() => onNavigate('plans')}>Create a plan</TeaButton>
-                </div>
-            </div>
-        );
-    }
 
     const sessionOn = (date: string): iSession | undefined => data.sessions.rows.find((session) => session.date === date);
     const workoutName = (session?: iSession) => data.workoutById.get(session?.workout ?? '')?.name ?? '?';
     const workouts = [...data.workoutList].sort((a, b) => a.name.localeCompare(b.name));
+
+    // Dropped on a day: that date. Dropped on an arrow of the week: the same weekday of the week before or after.
+    const { drag, start } = usePointerDrag<string>({
+        onDrop: (id, target) => {
+            const session = data.sessions.current().find((row) => row.id === id);
+            if (!session) {
+                return;
+            }
+            if (target.startsWith('week:')) {
+                const by = Number(target.slice(5)) * 7;
+                data.moveDay(id, addDays(session.date, by));
+                setMonday(addDays(monday, by));
+            } else {
+                data.moveDay(id, target.slice(4));
+            }
+        },
+    });
+    const dragged = data.sessions.rows.find((session) => session.id === drag?.item);
 
     const remove = async (session: iSession) => {
         setMenu(null);
@@ -89,36 +93,58 @@ export const WeekView = ({ data, onNavigate, onOpen }: iWeekViewProps) => {
         }
     };
 
+    const planOptions = data.plans.rows.map((row) => ({ label: row.active ? `${row.name} (default)` : row.name, value: row.id }));
+    const free = days.filter((date) => !sessionOn(date)).length;
+
     return (
-        <div className='week'>
+        <div className={`week ${drag ? 'week--dragging' : ''}`}>
             <header className='week__head'>
                 <div>
                     <h1>
                         Calendar week {week.week} <span className='muted'>{week.year}</span>
                     </h1>
                     <p className='muted'>
-                        {shortDate(days[0])} – {shortDate(days[6])} · {data.activePlan.name}
+                        {shortDate(days[0])} – {shortDate(days[6])}
                     </p>
                 </div>
                 <div className='week__nav'>
-                    <TeaButton size='small' onClick={() => setMonday(addDays(monday, -7))}>‹</TeaButton>
+                    <TeaButton
+                        size='small'
+                        onClick={() => {
+                            setPlan(data.activePlan?.id ?? data.plans.rows[0]?.id ?? '');
+                            setApplying(true);
+                        }}
+                    >
+                        Add a plan
+                    </TeaButton>
+                    <span className={`week__arrow ${drag?.target === 'week:-1' ? 'week__arrow--over' : ''}`} data-drop='week:-1'>
+                        <TeaButton size='small' onClick={() => setMonday(addDays(monday, -7))}>‹</TeaButton>
+                    </span>
                     <TeaButton size='small' disabled={monday === mondayOf(now)} onClick={() => setMonday(mondayOf(now))}>Today</TeaButton>
-                    <TeaButton size='small' disabled={monday >= addDays(mondayOf(now), MAX_WEEKS_AHEAD * 7)} onClick={() => setMonday(addDays(monday, 7))}>›</TeaButton>
+                    <span className={`week__arrow ${drag?.target === 'week:1' ? 'week__arrow--over' : ''}`} data-drop='week:1'>
+                        <TeaButton size='small' disabled={monday >= addDays(mondayOf(now), MAX_WEEKS_AHEAD * 7)} onClick={() => setMonday(addDays(monday, 7))}>›</TeaButton>
+                    </span>
                 </div>
             </header>
 
             <div className='week__grid'>
                 {days.map((date, index) => {
                     const session = sessionOn(date);
-                    const lastWeek = sessionOn(addDays(date, -7));
+                    const lastWeek = showLastWeek ? sessionOn(addDays(date, -7)) : undefined;
                     const workout = data.workoutById.get(session?.workout ?? '');
                     const open = menu === date;
+                    const locked = isTrained(session);
+                    const over = drag?.target === `day:${date}`;
                     return (
                         <article
                             key={date}
-                            className={`day ${date === now ? 'day--today' : ''} ${session ? `day--${session.status}` : 'day--empty'} ${workout?.kind === 'rest' ? 'day--rest' : ''}`}
+                            data-drop={`day:${date}`}
+                            className={`day ${date === now ? 'day--today' : ''} ${session ? `day--${session.status}` : 'day--empty'} ${workout?.kind === 'rest' ? 'day--rest' : ''} ${dragged?.id === session?.id && drag ? 'day--lifted' : ''} ${over ? (locked ? 'day--blocked' : 'day--over') : ''}`}
                         >
                             <div className='day__head'>
+                                {session && !locked && (
+                                    <button className='day__grip' title='Drag to another day' aria-label='Drag to another day' onPointerDown={start(session.id)}>⠿</button>
+                                )}
                                 <span className='day__no'>Day {ROMAN[index]}</span>
                                 <span className='muted'>{weekdayName(date)} · {shortDate(date)}</span>
                                 {session && (
@@ -152,12 +178,10 @@ export const WeekView = ({ data, onNavigate, onOpen }: iWeekViewProps) => {
 
                             {session && open && (
                                 <div className='day__menu'>
-                                    <button onClick={() => { setMenu(null); data.moveDay(session.id, -1); }}>‹ Earlier</button>
-                                    <button onClick={() => { setMenu(null); data.moveDay(session.id, 1); }}>Later ›</button>
-                                    {session.status === 'planned' && (
+                                    {!locked && (
                                         <>
-                                            <button onClick={() => { setMenu(null); data.shiftDay(session.id, 1); }}>Push this and all after by a day</button>
-                                            <button onClick={() => { setMenu(null); data.shiftDay(session.id, -1); }}>Pull this and all after back a day</button>
+                                            <button onClick={() => { setMenu(null); data.moveDay(session.id, addDays(date, -1)); }}>‹ A day earlier</button>
+                                            <button onClick={() => { setMenu(null); data.moveDay(session.id, addDays(date, 1)); }}>A day later ›</button>
                                         </>
                                     )}
                                     {session.status !== 'done' && (
@@ -172,6 +196,22 @@ export const WeekView = ({ data, onNavigate, onOpen }: iWeekViewProps) => {
                     );
                 })}
             </div>
+
+            {!data.workouts.rows.length && (
+                <div className='empty'>
+                    <p className='muted'>No workouts yet, create your own or start from an example.</p>
+                    <div className='empty__actions'>
+                        <TeaButton theme='filled' onClick={data.seed}>Add the example plan</TeaButton>
+                        <TeaButton onClick={() => onNavigate('plans')}>Create a plan</TeaButton>
+                    </div>
+                </div>
+            )}
+
+            {drag && dragged && (
+                <div className='day-ghost' style={{ left: drag.x, top: drag.y }}>
+                    {workoutName(dragged)}
+                </div>
+            )}
 
             <TeaModal
                 isOpen={adding !== null}
@@ -194,6 +234,38 @@ export const WeekView = ({ data, onNavigate, onOpen }: iWeekViewProps) => {
                 onClose={() => setAdding(null)}
             >
                 <TeaSelect label='Workout' value={pick} options={workouts.map((workout) => ({ label: workout.name, value: workout.id }))} onChange={(event) => setPick(event.target.value)} />
+            </TeaModal>
+
+            <TeaModal
+                isOpen={applying}
+                title={`Add a plan to week ${week.week}`}
+                size='sm'
+                footer={
+                    <TeaButton
+                        theme='filled'
+                        disabled={!plan}
+                        onClick={() => {
+                            data.applyPlan(plan, monday);
+                            setApplying(false);
+                        }}
+                    >
+                        Add to the free days
+                    </TeaButton>
+                }
+                onClose={() => setApplying(false)}
+            >
+                {planOptions.length ? (
+                    <>
+                        <TeaSelect label='Plan' value={plan} options={planOptions} onChange={(event) => setPlan(event.target.value)} />
+                        <p className='muted'>
+                            The days of the plan go on Monday, Tuesday, … of this week. Days that are filled already ({7 - free} of 7) stay as they are, nothing else is changed.
+                        </p>
+                    </>
+                ) : (
+                    <p className='muted'>
+                        There is no plan yet. <button className='link' onClick={() => onNavigate('plans')}>Create one</button>
+                    </p>
+                )}
             </TeaModal>
         </div>
     );

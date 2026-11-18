@@ -29,6 +29,7 @@ interface iSeedSlot {
     rep_max?: number;
     rep_min?: number;
     superset?: boolean;
+    warmup?: boolean;
 }
 
 interface iSeedWorkout {
@@ -38,10 +39,22 @@ interface iSeedWorkout {
     focus?: string;
     notes?: string;
     rest_seconds?: number;
-    warmup?: string;
 }
 
-const WARMUP = 'Rower 5 min, or 15° incline treadmill / Stairmaster 10 min, or bike to the gym / jump rope';
+// Rower, or one of the others instead
+const WARMUP: iSeedSlot = {
+    exercise: 'Rower',
+    sets: 1,
+    rep_min: 5,
+    rep_max: 10,
+    warmup: true,
+    alternatives: [
+        { exercise: 'Incline Treadmill (15°)', rep_min: 10, rep_max: 10 },
+        { exercise: 'Stairmaster', rep_min: 10, rep_max: 10 },
+        { exercise: 'Cycling', rep_min: 10, rep_max: 15 },
+        { exercise: 'Jump Rope', rep_min: 5, rep_max: 10 },
+    ],
+};
 
 const EXERCISES: { name: string; unit: tUnit; weighted: boolean }[] = [
     ['45° Leg Press', 'reps', true],
@@ -55,12 +68,14 @@ const EXERCISES: { name: string; unit: tUnit; weighted: boolean }[] = [
     ['Dumbbell Preacher Curl', 'reps', true],
     ['Dumbbell Shoulder Press', 'reps', true],
     ['Dumbbell Shrugs', 'reps', true],
+    ['Cycling', 'minutes', false],
     ['Face Pulls', 'reps', true],
     ['Frontal Cable Lateral Raises', 'reps', true],
     ['Frontal Planks', 'minutes', true],
     ['Forward-Leaning Seated Hamstring Curls', 'reps', true],
     ['Full Hammer Dumbbell Curls', 'reps', true],
     ['Incline Dumbbell Curls', 'reps', true],
+    ['Incline Treadmill (15°)', 'minutes', false],
     ['Jogging', 'minutes', false],
     ['Jump Rope', 'minutes', false],
     ['Kegel Exercises', 'reps', false],
@@ -68,6 +83,8 @@ const EXERCISES: { name: string; unit: tUnit; weighted: boolean }[] = [
     ['Overhead Triceps Cable Extension', 'reps', true],
     ['Pec-Deck', 'reps', true],
     ['Push-Ups', 'reps', false],
+    ['Rower', 'minutes', false],
+    ['Stairmaster', 'minutes', false],
     ['Standing Calf Raises', 'reps', true],
     ['Swimming', 'meters', false],
     ['V-Grip Cable Row', 'reps', true],
@@ -78,8 +95,8 @@ const upper = (name: string): iSeedWorkout => ({
     kind: 'strength',
     name,
     rest_seconds: 90,
-    warmup: WARMUP,
     slots: [
+        WARMUP,
         { exercise: 'Barbell Back Squat', sets: 3, rep_min: 8, rep_max: 12 },
         {
             exercise: 'Dumbbell Chest Press',
@@ -123,8 +140,8 @@ const WORKOUTS: iSeedWorkout[] = [
         kind: 'strength',
         name: 'Full Body B',
         rest_seconds: 90,
-        warmup: WARMUP,
         slots: [
+            WARMUP,
             { exercise: '45° Leg Press', sets: 3, rep_min: 8, rep_max: 12 },
             { exercise: 'Barbell Row (Overhand)', sets: 3, rep_min: 8, rep_max: 12 },
             { exercise: 'Dumbbell Shrugs', sets: 3, rep_min: 10, rep_max: 15, superset: true },

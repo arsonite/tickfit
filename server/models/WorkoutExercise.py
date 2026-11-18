@@ -29,6 +29,7 @@ class WorkoutExercise(HSDBModel):
     rep_min   = HSDBAttribute(int)
     sets      = HSDBAttribute(int, required=True)
     superset  = HSDBAttribute(bool, description='Done in turns with the line above')
+    warmup    = HSDBAttribute(bool, description='A line of the warm-up, done before the others')
     workout   = HSDBRelation.ManyToOne(Workout, required=True)
 
 # An alternative sits in the workout of its main line, assigned here because the class cannot name itself in its own body

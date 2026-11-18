@@ -84,7 +84,7 @@ const planCollection = define<iPlan>(PlanAPI, 'plans', { active: false, name: ''
 const slotCollection = define<iSlot>(
     SlotAPI,
     'slots',
-    { notes: '', position: 0, rep_max: 0, rep_min: 0, sets: 1, superset: false },
+    { notes: '', position: 0, rep_max: 0, rep_min: 0, sets: 1, superset: false, warmup: false },
     { alternative_of: 'slots', exercise: 'exercises', workout: 'workouts' },
 );
 const planDayCollection = define<iPlanDay>(PlanDayAPI, 'planDays', { position: 0 }, { plan: 'plans', workout: 'workouts' });
