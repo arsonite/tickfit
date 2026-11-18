@@ -1,0 +1,161 @@
+/**
+ * @license
+ * Copyright (C) 2024-2026 Burak Günaydin
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, version 3 of the License.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
+.week {
+    max-width: 1200px;
+    margin: 0 auto;
+
+    &__head {
+        display: flex;
+        align-items: flex-end;
+        flex-wrap: wrap;
+        gap: 12px;
+        justify-content: space-between;
+        margin-bottom: 20px;
+    }
+
+    &__nav {
+        display: flex;
+        gap: 6px;
+    }
+
+    &__grid {
+        display: grid;
+        gap: 12px;
+        grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+    }
+}
+
+.day {
+    position: relative;
+
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+
+    min-height: 150px;
+    padding: 12px;
+
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+
+    &--today {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 1px var(--accent-glow);
+    }
+
+    &--rest {
+        opacity: 0.75;
+    }
+
+    &--skipped strong {
+        color: var(--text-tertiary);
+        text-decoration: line-through;
+    }
+
+    &__head {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+
+        .mini {
+            margin-left: auto;
+        }
+    }
+
+    &__no {
+        color: var(--accent);
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        white-space: nowrap;
+    }
+
+    &__body {
+        display: flex;
+        flex: 1;
+        flex-direction: column;
+        gap: 4px;
+
+        padding: 10px;
+
+        background: var(--bg-tertiary);
+        border: 1px solid transparent;
+        border-radius: var(--radius-md);
+        color: var(--text-primary);
+        cursor: pointer;
+        font: inherit;
+        text-align: left;
+
+        &:hover {
+            border-color: var(--border-strong);
+        }
+
+        &--add {
+            align-items: center;
+            justify-content: center;
+
+            background: none;
+            border: 1px dashed var(--border-strong);
+            color: var(--text-secondary);
+        }
+    }
+
+    &__last {
+        font-size: 12px;
+    }
+
+    &__menu {
+        position: absolute;
+        right: 8px;
+        top: 44px;
+        z-index: 5;
+
+        display: flex;
+        flex-direction: column;
+        min-width: 210px;
+        padding: 4px;
+
+        background: var(--bg-tertiary);
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-md);
+        box-shadow: var(--shadow);
+
+        button {
+            padding: 8px 10px;
+
+            background: none;
+            border: none;
+            border-radius: var(--radius-sm);
+            color: var(--text-primary);
+            cursor: pointer;
+            font: inherit;
+            font-size: 13px;
+            text-align: left;
+
+            &:hover {
+                background: var(--bg-hover);
+            }
+
+            &.danger {
+                color: var(--danger);
+            }
+        }
+    }
+}

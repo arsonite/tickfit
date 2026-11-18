@@ -1,0 +1,63 @@
+/**
+ * @license
+ * Copyright (C) 2024-2026 Burak Günaydin
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, version 3 of the License.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
+:root {
+    --accent: #30d158;
+    --accent-glow: rgba(48, 209, 88, 0.25);
+    --accent-hover: #5ae07f;
+    --bg-gradient: linear-gradient(135deg, #0a0a0b 0%, #141416 25%, #1a1a1d 50%, #141416 75%, #0a0a0b 100%);
+    --bg-hover: #2a2a30;
+    --bg-primary: #0a0a0b;
+    --bg-secondary: rgba(20, 20, 22, 0.85);
+    --bg-tertiary: #1e1e22;
+    --border: rgba(255, 255, 255, 0.08);
+    --border-strong: rgba(255, 255, 255, 0.15);
+    --danger: #ff453a;
+    --danger-hover: #ff6961;
+    --radius-lg: 14px;
+    --radius-md: 10px;
+    --radius-sm: 6px;
+    --shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+    --text-primary: #ffffff;
+    --text-secondary: #98989d;
+    --text-tertiary: #636366;
+    --warning: #ff9f0a;
+
+    // TeaType component variable mappings (for TeaSidebar, TeaModal, TeaToast, inputs)
+    --accent-soft: var(--accent-glow);
+    --error: var(--danger);
+    --error-hover: var(--danger-hover);
+    --surface-card: var(--bg-secondary);
+    --surface-elevated: var(--bg-tertiary);
+    --text-muted: var(--text-secondary);
+}
+
+html,
+body,
+#root {
+    height: 100%;
+    width: 100%;
+    overscroll-behavior: none;
+}
+
+body {
+    overflow: hidden;
+
+    background: var(--bg-gradient);
+    color: var(--text-primary);
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif;
+}

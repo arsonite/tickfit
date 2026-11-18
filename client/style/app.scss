@@ -1,0 +1,236 @@
+/**
+ * @license
+ * Copyright (C) 2024-2026 Burak Günaydin
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, version 3 of the License.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
+.app {
+    display: flex;
+    height: 100vh;
+    height: 100dvh;
+    width: 100%;
+
+    // A collapsed sidebar on a desktop has a place of its own, only a phone lets the page run under the rail
+    &--rail:not(&--mobile) .tea-sidebar--collapsed {
+        width: var(--tea-sidebar-collapsed-width, 44px);
+    }
+
+    > main {
+        overflow-x: hidden;
+        overflow-y: auto;
+
+        flex: 1;
+
+        min-width: 0;
+        padding: 24px 28px 48px;
+    }
+
+    &--mobile > main {
+        padding: 16px 14px 40px 58px;
+    }
+}
+
+h1,
+h2 {
+    margin: 0;
+    font-weight: 600;
+}
+
+h1 {
+    font-size: 22px;
+}
+
+h2 {
+    margin: 22px 0 10px;
+    font-size: 16px;
+}
+
+p {
+    margin: 4px 0 0;
+}
+
+.muted {
+    color: var(--text-secondary);
+    font-size: 13px;
+}
+
+.grow {
+    flex: 1;
+}
+
+.link {
+    padding: 4px 0;
+
+    background: none;
+    border: none;
+    color: var(--accent);
+    cursor: pointer;
+    font: inherit;
+    font-size: 13px;
+
+    &:hover:not(:disabled) {
+        color: var(--accent-hover);
+    }
+
+    &:disabled {
+        color: var(--text-tertiary);
+        cursor: default;
+    }
+}
+
+.empty {
+    padding: 48px 16px;
+
+    color: var(--text-secondary);
+    text-align: center;
+
+    h2 {
+        color: var(--text-primary);
+    }
+
+    &__actions {
+        display: flex;
+        gap: 10px;
+        justify-content: center;
+        margin-top: 16px;
+    }
+}
+
+.nav {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 8px;
+
+    &__item {
+        padding: 10px 12px;
+
+        background: none;
+        border: none;
+        border-radius: var(--radius-md);
+        color: var(--text-secondary);
+        cursor: pointer;
+        font: inherit;
+        text-align: left;
+
+        &:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+        }
+
+        &--on {
+            background: var(--accent-glow);
+            color: var(--accent);
+        }
+    }
+}
+
+// Small square buttons: the controls of a set, of a day and of a line
+.mini {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    flex-shrink: 0;
+    height: 30px;
+    min-width: 30px;
+
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-secondary);
+    cursor: pointer;
+    font: inherit;
+    font-size: 12px;
+
+    &:hover:not(:disabled) {
+        border-color: var(--border-strong);
+        color: var(--text-primary);
+    }
+
+    &:disabled {
+        opacity: 0.35;
+        cursor: default;
+    }
+
+    &--on {
+        border-color: var(--warning);
+        color: var(--warning);
+    }
+
+    &--ok {
+        background: var(--accent-glow);
+        border-color: var(--accent);
+        color: var(--accent);
+    }
+}
+
+.badge {
+    align-self: flex-start;
+
+    padding: 2px 8px;
+
+    background: var(--bg-tertiary);
+    border-radius: 99px;
+    color: var(--text-secondary);
+    font-size: 11px;
+
+    &--done {
+        background: var(--accent-glow);
+        color: var(--accent);
+    }
+
+    &--skipped {
+        color: var(--warning);
+    }
+}
+
+.thumb {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+
+    flex-shrink: 0;
+    height: 44px;
+    width: 44px;
+
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-md);
+    color: var(--text-tertiary);
+    font-size: 13px;
+    font-weight: 600;
+
+    img {
+        height: 100%;
+        width: 100%;
+        object-fit: cover;
+    }
+
+    &--large {
+        height: 96px;
+        width: 96px;
+    }
+}
+
+.search {
+    min-width: 0;
+    padding: 8px 12px;
+
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    font: inherit;
+}
