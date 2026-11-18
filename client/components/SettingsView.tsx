@@ -122,8 +122,9 @@ export const SettingsView = ({ data, onApply, onChange, onClose, settings, toast
             toast.error('Not a Tickfit export file');
             return;
         }
-        const count = data.importTables(tables);
-        toast.success(count ? `${count} row${count === 1 ? '' : 's'} imported` : 'Nothing new in this file');
+        const { added, updated } = data.importTables(tables);
+        const parts = [added && `${added} row${added === 1 ? '' : 's'} imported`, updated && `${updated} exercise${updated === 1 ? '' : 's'} completed`].filter(Boolean);
+        toast.success(parts.length ? parts.join(', ') : 'Nothing new in this file');
     };
 
     const importSettings = async () => {
@@ -336,7 +337,7 @@ export const SettingsView = ({ data, onApply, onChange, onClose, settings, toast
                         {
                             id: 'import-data',
                             label: 'Exercises, workouts, plans and log',
-                            description: 'A file of an export. What is here already (same id) is skipped, an exercise with the name of one here is not added twice.',
+                            description: 'A file of an export. What is here already (same id) is skipped, an exercise with the name of one here is not added twice but gets the counts it lacks.',
                             control: { type: 'button', label: 'Import', onClick: () => void importData() },
                         },
                         {

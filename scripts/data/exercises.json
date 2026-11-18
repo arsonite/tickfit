@@ -13,16 +13,61 @@
     { "name": "Face Pulls", "unit": "reps", "weighted": true, "category": "pull" },
     { "name": "Forward-Leaning Seated Hamstring Curls", "unit": "reps", "weighted": true, "category": "legs" },
     { "name": "Frontal Cable Lateral Raises", "unit": "reps", "weighted": true, "category": "push" },
-    { "name": "Frontal Planks", "unit": "minutes", "weighted": true, "category": "core" },
+    {
+        "name": "Frontal Planks",
+        "unit": "seconds",
+        "weighted": true,
+        "category": "core"
+    },
     { "name": "Full Hammer Dumbbell Curls", "unit": "reps", "weighted": true, "category": "pull" },
     { "name": "Incline Dumbbell Curls", "unit": "reps", "weighted": true, "category": "pull" },
-    { "name": "Cycling", "unit": "minutes", "weighted": false, "category": "cardio" },
-    { "name": "Incline Treadmill (15°)", "unit": "minutes", "weighted": false, "category": "cardio" },
-    { "name": "Jogging", "unit": "minutes", "weighted": false, "category": "cardio" },
-    { "name": "Rower", "unit": "minutes", "weighted": false, "category": "cardio" },
-    { "name": "Stairmaster", "unit": "minutes", "weighted": false, "category": "cardio" },
-    { "name": "Treadmill", "unit": "minutes", "weighted": false },
-    { "name": "Jump Rope", "unit": "minutes", "weighted": false, "category": "cardio" },
+    {
+        "name": "Cycling",
+        "unit": "minutes",
+        "weighted": false,
+        "category": "cardio",
+        "distanced": true,
+        "distance_unit": "km"
+    },
+    {
+        "name": "Incline Treadmill (15°)",
+        "unit": "minutes",
+        "weighted": false,
+        "category": "cardio",
+        "distanced": true,
+        "distance_unit": "m"
+    },
+    {
+        "name": "Jogging",
+        "unit": "minutes",
+        "weighted": false,
+        "category": "cardio",
+        "distanced": true,
+        "distance_unit": "km"
+    },
+    {
+        "name": "Rower",
+        "unit": "minutes",
+        "weighted": false,
+        "category": "cardio",
+        "distanced": true,
+        "distance_unit": "km"
+    },
+    {
+        "name": "Stairmaster",
+        "unit": "minutes",
+        "weighted": false,
+        "category": "cardio",
+        "distanced": true,
+        "distance_unit": "m"
+    },
+    { "name": "Treadmill", "unit": "minutes", "weighted": false, "distanced": true, "distance_unit": "km" },
+    {
+        "name": "Jump Rope",
+        "unit": "minutes",
+        "weighted": false,
+        "category": "cardio"
+    },
     { "name": "Kegel Exercises", "unit": "reps", "weighted": false, "category": "core" },
     { "name": "Mag-Grip Lat Pulldown", "unit": "reps", "weighted": true, "category": "pull" },
     { "name": "Overhead Triceps Cable Extension", "unit": "reps", "weighted": true, "category": "push" },

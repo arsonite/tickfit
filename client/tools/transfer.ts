@@ -129,18 +129,47 @@ const parseTables = (json: string, types: string[], complete = false): tTables |
 
 const norm = (name: string) => name.trim().toLowerCase();
 
+/** `exercise` with what `other` knows and it lacks: a count (reps, time, distance), the weight, a category or notes are only added, never taken away. null if there is nothing to add. */
+const completed = (exercise: iExercise, other: iExercise): iExercise | null => {
+    const patch: Partial<iExercise> = {};
+    if (other.unit === 'reps' && exercise.unit !== 'reps') {
+        patch.unit = 'reps';
+    }
+    if (other.weighted && !exercise.weighted) {
+        patch.weighted = true;
+    }
+    if (other.timed && !exercise.timed) {
+        Object.assign(patch, { timed: true, time_unit: other.time_unit ?? 'seconds' });
+    }
+    if (other.distanced && !exercise.distanced) {
+        Object.assign(patch, { distanced: true, distance_unit: other.distance_unit ?? 'km' });
+    }
+    (['category', 'notes'] as const).forEach((field) => other[field] && !exercise[field] && (patch[field] = other[field]));
+    return Object.keys(patch).length ? { ...exercise, ...patch } : null;
+};
+
 /**
  * What an import adds to `existing`: rows whose id is not there yet. An exercise with the name of one that is there is
- * not added twice, the rows of the file that use it use the existing one.
+ * not added twice, the rows of the file that use it use the existing one. The exercise that is there is completed with
+ * what the file knows about it (see `completed`), `updated` are those exercises.
  */
-const planImport = (existing: tTables, file: tTables): { added: tTables; count: number } => {
+const planImport = (existing: tTables, file: tTables): { added: tTables; count: number; updated: iExercise[] } => {
     const known = Object.fromEntries(NAMES.map((name) => [name, new Set(existing[name].map(({ id }) => id))]));
     const byName = new Map((existing.exercises as iExercise[]).map((exercise) => [norm(exercise.name), exercise.id]));
     const same = new Map<string, string>();
+    const current = new Map((existing.exercises as iExercise[]).map((exercise) => [exercise.id, exercise]));
+    const updated = new Map<string, iExercise>();
     for (const exercise of file.exercises as iExercise[]) {
-        const match = byName.get(norm(exercise.name));
-        if (!known.exercises.has(exercise.id) && match) {
+        const match = known.exercises.has(exercise.id) ? exercise.id : byName.get(norm(exercise.name));
+        if (!match) {
+            continue;
+        }
+        if (match !== exercise.id) {
             same.set(exercise.id, match);
+        }
+        const more = completed(updated.get(match) ?? current.get(match)!, exercise);
+        if (more) {
+            updated.set(match, more);
         }
     }
 
@@ -164,7 +193,7 @@ const planImport = (existing: tTables, file: tTables): { added: tTables; count: 
             return [name, candidates[name].filter(({ id }) => ids.has(id))];
         }),
     );
-    return { added, count: NAMES.reduce((sum, name) => sum + added[name].length, 0) };
+    return { added, count: NAMES.reduce((sum, name) => sum + added[name].length, 0), updated: [...updated.values()] };
 };
 
 const cell = (value: string | number): string => (/[",\n]/.test(String(value)) ? `"${String(value).replace(/"/g, '""')}"` : String(value));

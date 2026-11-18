@@ -135,11 +135,16 @@ const useTickfit = ({ error: toastError, info, success }: iUseTeaToastReturn, st
     /** Replaces everything with the tables of a backup. The sync then makes the server match, rows that are not in it are deleted there. */
     const restoreTables = (tables: tTables) => views.forEach(([name, table]) => table.replace(tables[name]));
 
-    /** Adds what the file has that is not here yet, returns how many rows */
-    const importTables = (file: tTables): number => {
-        const { added, count } = planImport(snapshot(), file);
-        views.forEach(([name, table]) => added[name].length && table.replace([...table.current(), ...added[name]]));
-        return count;
+    /** Adds what the file has that is not here yet and completes the exercises that are here, returns how many rows were added and exercises completed */
+    const importTables = (file: tTables): { added: number; updated: number } => {
+        const plan = planImport(snapshot(), file);
+        const updated = new Map(plan.updated.map((exercise) => [exercise.id, exercise]));
+        views.forEach(([name, table]) => {
+            if (plan.added[name].length || (name === 'exercises' && updated.size)) {
+                table.replace([...table.current().map((row) => updated.get(row.id) ?? row), ...plan.added[name]]);
+            }
+        });
+        return { added: plan.count, updated: updated.size };
     };
 
     /** Deletes the device copy and reloads: the app starts like on a new device and fetches everything from the server */
