@@ -68,8 +68,9 @@ const Tickfit = ({ stored }: { stored: tStored }) => {
 
     useWakeLock(settings.keepAwake && Boolean(data.training.session));
 
-    // On a phone, or if it is hidden, the sidebar is a sheet over the page, it opens on demand and is not remembered
-    const sheeted = mobile || settings.hideSidebar;
+    // On a phone the sidebar is a sheet over the page, it opens on demand and is not remembered. Hiding it is for phones only.
+    const hidden = mobile && settings.hideSidebar;
+    const sheeted = mobile;
     const expanded = sheeted ? sheet : pinned;
     const toggle = () => {
         if (sheeted) {
@@ -93,7 +94,7 @@ const Tickfit = ({ stored }: { stored: tStored }) => {
     };
 
     // Hidden, the sidebar comes in by a swipe from the left edge
-    useEffect(() => (settings.hideSidebar ? edgeSwipe(() => setSheet(true)) : undefined), [settings.hideSidebar]);
+    useEffect(() => (hidden ? edgeSwipe(() => setSheet(true)) : undefined), [hidden]);
 
     // Escape closes the settings, like the back button
     useEffect(() => {
@@ -106,7 +107,7 @@ const Tickfit = ({ stored }: { stored: tStored }) => {
     }, [settingsOpen]);
 
     return (
-        <div className={`app ${expanded && !sheeted ? '' : 'app--rail'} ${sheeted ? 'app--mobile' : ''} ${settings.hideSidebar ? 'app--hidden' : ''}`}>
+        <div className={`app ${expanded && !sheeted ? '' : 'app--rail'} ${sheeted ? 'app--mobile' : ''} ${hidden ? 'app--hidden' : ''}`}>
             <TeaSidebar
                 expanded={expanded}
                 mobile={sheeted}

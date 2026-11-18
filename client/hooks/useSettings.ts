@@ -30,7 +30,7 @@ interface iSettings {
     autoStart: boolean;
     /** Pause between sets (s) of a workout that has none of its own */
     defaultRest: number;
-    /** No sidebar or rail, it comes in from the left edge by a swipe to the right */
+    /** On a phone: no sidebar or rail, it comes in from the left edge by a swipe to the right. Ignored on the desktop. */
     hideSidebar: boolean;
     /** The screen stays on while training */
     keepAwake: boolean;

@@ -228,7 +228,7 @@ export const SettingsView = ({ data, onApply, onChange, onClose, settings, toast
                         {
                             id: 'hide-sidebar',
                             label: 'Hide the sidebar',
-                            description: 'No sidebar or rail. Swipe from the left edge to the right to open it.',
+                            description: 'On a phone: no sidebar or rail, swipe from the left edge to the right to open it. The desktop ignores this.',
                             control: { type: 'toggle', value: settings.hideSidebar, onChange: (value) => onChange('hideSidebar', value) },
                         },
                     ],
