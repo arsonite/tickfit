@@ -61,7 +61,8 @@ interface iSlot extends iRow {
 }
 
 interface iPlan extends iRow {
-    active?: boolean;
+    active?: boolean; // Can be put on a week
+    default?: boolean; // The active plan that is offered first
     name: string;
     notes?: string;
 }

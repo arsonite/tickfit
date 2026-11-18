@@ -19,7 +19,7 @@
 import { useState } from 'react';
 
 // TeaType
-import { TeaButton, TeaInput, TeaSelect, TeaTextarea, useConfirm } from '@teatype/components';
+import { TeaAutocomplete, TeaButton, TeaInput, TeaTextarea, useConfirm } from '@teatype/components';
 
 // Hooks
 import type { tData } from '@/hooks/useTickfit';
@@ -36,11 +36,17 @@ export const PlansView = ({ data }: iPlansViewProps) => {
     const confirm = useConfirm();
     const [selected, setSelected] = useState<string | null>(null);
 
-    const plans = [...data.plans.rows].sort((a, b) => a.name.localeCompare(b.name));
-    const plan = plans.find((row) => row.id === selected) ?? data.activePlan ?? plans[0];
+    const plans = [...data.plans.rows].sort((a, b) => Number(Boolean(b.active)) - Number(Boolean(a.active)) || a.name.localeCompare(b.name));
+    const plan = plans.find((row) => row.id === selected) ?? data.defaultPlan ?? plans[0];
+    const isDefault = plan?.id === data.defaultPlan?.id;
     const days = plan ? data.planDays.rows.filter((day) => day.plan === plan.id).sort((a, b) => a.position - b.position) : [];
     const workouts = [...data.workoutList].sort((a, b) => a.name.localeCompare(b.name));
     const options = workouts.map((workout) => ({ label: workout.name, value: workout.id }));
+    // A day can still use a workout that was archived afterwards
+    const optionsFor = (current: string) => {
+        const archived = data.workoutById.get(current);
+        return archived?.archived ? [{ label: `${archived.name} (archived)`, value: archived.id }, ...options] : options;
+    };
 
     const create = () => setSelected(data.plans.add({ active: false, name: 'New plan' }).id);
 
@@ -82,9 +88,9 @@ export const PlansView = ({ data }: iPlansViewProps) => {
                     <TeaButton size='small' theme='filled' onClick={() => void create()}>New</TeaButton>
                 </header>
                 {plans.map((row) => (
-                    <button key={row.id} className={`list__item ${row.id === plan?.id ? 'list__item--on' : ''}`} onClick={() => setSelected(row.id)}>
+                    <button key={row.id} className={`list__item ${row.active ? '' : 'list__item--off'} ${row.id === plan?.id ? 'list__item--on' : ''}`} onClick={() => setSelected(row.id)}>
                         {row.name}
-                        {row.active && <span className='badge badge--done'>Default</span>}
+                        {row.active && <span className='badge badge--done'>{row.id === data.defaultPlan?.id ? 'Default' : 'Active'}</span>}
                     </button>
                 ))}
                 {!plans.length && <div className='empty'>No plans yet.</div>}
@@ -99,7 +105,7 @@ export const PlansView = ({ data }: iPlansViewProps) => {
                     {days.map((day, index) => (
                         <div key={day.id} className='slot__row'>
                             <span className='day__no'>Day {ROMAN[index] ?? index + 1}</span>
-                            <TeaSelect className='slot__exercise' value={day.workout} options={options} onChange={(event) => data.planDays.patch(day.id, { workout: event.target.value })} />
+                            <TeaAutocomplete className='slot__exercise' value={day.workout} options={optionsFor(day.workout)} onChange={(workout) => data.planDays.patch(day.id, { workout })} />
                             <button className='mini' title='Up' disabled={index === 0} onClick={() => move(index, -1)}>↑</button>
                             <button className='mini' title='Down' disabled={index === days.length - 1} onClick={() => move(index, 1)}>↓</button>
                             <button className='mini' title='Remove' onClick={() => data.planDays.remove([day.id])}>✕</button>
@@ -111,8 +117,15 @@ export const PlansView = ({ data }: iPlansViewProps) => {
                     </div>
 
                     <div className='editor__actions'>
-                        {!plan.active && <TeaButton onClick={() => data.activate(plan.id)}>Make default</TeaButton>}
-                        <span className='muted'>{plan.active ? 'This plan is the one offered first when adding a plan to a week.' : 'Nothing is put on the calendar by a plan itself.'}</span>
+                        <TeaButton theme={plan.active ? undefined : 'filled'} onClick={() => data.setActive(plan.id, !plan.active)}>{plan.active ? 'Deactivate' : 'Activate'}</TeaButton>
+                        {plan.active && !isDefault && <TeaButton onClick={() => data.setDefault(plan.id)}>Make default</TeaButton>}
+                        <span className='muted'>
+                            {!plan.active
+                                ? 'Only active plans can be added to a week.'
+                                : isDefault
+                                  ? 'Active, and offered first when adding a plan to a week.'
+                                  : 'Active, can be added to a week.'}
+                        </span>
                         <span className='grow' />
                         <TeaButton theme='danger' onClick={() => void remove()}>Delete plan</TeaButton>
                     </div>

@@ -19,7 +19,7 @@
 import { useState } from 'react';
 
 // TeaType
-import { TeaButton, TeaModal, TeaSelect, useConfirm } from '@teatype/components';
+import { TeaAutocomplete, TeaButton, TeaModal, TeaSelect, useConfirm } from '@teatype/components';
 import { usePointerDrag } from '@teatype/hooks/usePointerDrag';
 
 // Hooks
@@ -93,7 +93,7 @@ export const WeekView = ({ data, onNavigate, onOpen, showLastWeek }: iWeekViewPr
         }
     };
 
-    const planOptions = data.plans.rows.map((row) => ({ label: row.active ? `${row.name} (default)` : row.name, value: row.id }));
+    const planOptions = data.activePlans.map((row) => ({ label: row.id === data.defaultPlan?.id ? `${row.name} (default)` : row.name, value: row.id }));
     const free = days.filter((date) => !sessionOn(date)).length;
 
     return (
@@ -111,11 +111,14 @@ export const WeekView = ({ data, onNavigate, onOpen, showLastWeek }: iWeekViewPr
                     <TeaButton
                         size='small'
                         onClick={() => {
-                            setPlan(data.activePlan?.id ?? data.plans.rows[0]?.id ?? '');
+                            setPlan(data.defaultPlan?.id ?? '');
                             setApplying(true);
                         }}
                     >
                         Add a plan
+                    </TeaButton>
+                    <TeaButton size='small' disabled={!free} onClick={() => data.fillRestDays(monday)}>
+                        Fill with rest days
                     </TeaButton>
                     <span className={`week__arrow ${drag?.target === 'week:-1' ? 'week__arrow--over' : ''}`} data-drop='week:-1'>
                         <TeaButton size='small' onClick={() => setMonday(addDays(monday, -7))}>‹</TeaButton>
@@ -139,7 +142,7 @@ export const WeekView = ({ data, onNavigate, onOpen, showLastWeek }: iWeekViewPr
                         <article
                             key={date}
                             data-drop={`day:${date}`}
-                            className={`day ${date === now ? 'day--today' : ''} ${session ? `day--${session.status}` : 'day--empty'} ${workout?.kind === 'rest' ? 'day--rest' : ''} ${dragged?.id === session?.id && drag ? 'day--lifted' : ''} ${over ? (locked ? 'day--blocked' : 'day--over') : ''}`}
+                            className={`day ${open ? 'day--menu' : ''} ${date === now ? 'day--today' : ''} ${session ? `day--${session.status}` : 'day--empty'} ${workout?.kind === 'rest' ? 'day--rest' : ''} ${dragged?.id === session?.id && drag ? 'day--lifted' : ''} ${over ? (locked ? 'day--blocked' : 'day--over') : ''}`}
                         >
                             <div className='day__head'>
                                 {session && !locked && (
@@ -233,7 +236,7 @@ export const WeekView = ({ data, onNavigate, onOpen, showLastWeek }: iWeekViewPr
                 }
                 onClose={() => setAdding(null)}
             >
-                <TeaSelect label='Workout' value={pick} options={workouts.map((workout) => ({ label: workout.name, value: workout.id }))} onChange={(event) => setPick(event.target.value)} />
+                <TeaAutocomplete label='Workout' value={pick} options={workouts.map((workout) => ({ label: workout.name, value: workout.id }))} onChange={setPick} />
             </TeaModal>
 
             <TeaModal
@@ -263,7 +266,7 @@ export const WeekView = ({ data, onNavigate, onOpen, showLastWeek }: iWeekViewPr
                     </>
                 ) : (
                     <p className='muted'>
-                        There is no plan yet. <button className='link' onClick={() => onNavigate('plans')}>Create one</button>
+                        There is no active plan. <button className='link' onClick={() => onNavigate('plans')}>Activate or create one</button>
                     </p>
                 )}
             </TeaModal>

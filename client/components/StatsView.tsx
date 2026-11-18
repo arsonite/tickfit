@@ -393,7 +393,8 @@ const PlansTab = ({ ctx }: { ctx: iStatsContext }) => {
             render: (row: tRow) => (
                 <div className='cell'>
                     <strong>{row.name}</strong>
-                    {row.plan?.active && <span className='badge badge--done'>Default</span>}
+                    {row.plan?.default && row.plan.active && <span className='badge badge--done'>Default</span>}
+                    {row.plan?.active && !row.plan.default && <span className='badge'>Active</span>}
                 </div>
             ),
         },

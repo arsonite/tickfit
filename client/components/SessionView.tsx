@@ -211,6 +211,18 @@ export const SessionView = ({ data, defaultRest, sessionId, vibrate, onBack }: i
         logged.slice(index + 1).filter((row) => !row.disabled && !row.done).forEach((row) => sets.patch(row.id, { weight }));
     };
 
+    // The weights of the last time for the sets that are not done, set by set
+    const takeOverWeights = (logged: iSet[], lastSets: iSet[]) => {
+        logged
+            .filter((row) => !row.disabled)
+            .forEach((row, position) => {
+                const weight = lastSets[position]?.weight;
+                if (!row.done && weight !== undefined) {
+                    sets.patch(row.id, { weight });
+                }
+            });
+    };
+
     const toggleDone = () => {
         data.sessions.patch(session.id, { status: session.status === 'done' ? 'planned' : 'done' });
     };
@@ -266,12 +278,14 @@ export const SessionView = ({ data, defaultRest, sessionId, vibrate, onBack }: i
                             const weighted = Boolean(exercise?.weighted);
                             const prefix = block.lines.length > 1 ? LETTERS[lineIndex] : '';
                             const current = training && logged.some(isRunning);
+                            // Every set is done: nothing of the exercise changes until a set is undone
+                            const finished = logged.some((set) => !set.disabled) && logged.every((set) => set.disabled || set.done);
                             const upNext = training && !current && next?.session_exercise === entry.id;
                             // Disabled sets do not take a number, so the numbers are those of the order they are done in
                             const numbers = new Map(logged.filter((set) => !set.disabled).map((set, position) => [set.id, position + 1]));
 
                             return (
-                                <section key={entry.id} className={`line ${current ? 'line--current' : ''} ${upNext ? 'line--next' : ''}`}>
+                                <section key={entry.id} className={`line ${current ? 'line--current' : ''} ${upNext ? 'line--next' : ''} ${finished ? 'line--finished' : ''}`}>
                                     <div className='line__head'>
                                         {prefix && <span className='line__letter'>{prefix}</span>}
                                         <Thumb exercise={exercise} />
@@ -289,6 +303,7 @@ export const SessionView = ({ data, defaultRest, sessionId, vibrate, onBack }: i
                                             {choices.map((choice) => (
                                                 <button
                                                     key={choice.id}
+                                                    disabled={finished}
                                                     className={`chip ${choice.id === entry.chosen ? 'chip--on' : ''}`}
                                                     onClick={() => {
                                                         entries.patch(entry.id, { chosen: choice.id });
@@ -304,7 +319,16 @@ export const SessionView = ({ data, defaultRest, sessionId, vibrate, onBack }: i
                                         </div>
                                     )}
 
-                                    {previous && <div className='line__last'>Last trained {shortDate(previous.date)}</div>}
+                                    {previous && (
+                                        <div className='line__last'>
+                                            <span>Last trained {shortDate(previous.date)}</span>
+                                            {weighted && !finished && (
+                                                <button className='link' title='The kg of the last time, set by set' onClick={() => takeOverWeights(logged, lastSets)}>
+                                                    Take over kg
+                                                </button>
+                                            )}
+                                        </div>
+                                    )}
 
                                     <div className='sets'>
                                         {logged.map((set) => {
@@ -330,6 +354,7 @@ export const SessionView = ({ data, defaultRest, sessionId, vibrate, onBack }: i
                                                                 type='number'
                                                                 inputMode='decimal'
                                                                 min={0}
+                                                                disabled={set.done}
                                                                 value={set.value || ''}
                                                                 placeholder={UNIT_LABEL[exercise?.unit ?? 'reps']}
                                                                 onChange={(event) => sets.patch(set.id, { value: number(event.target.value) })}
@@ -343,12 +368,13 @@ export const SessionView = ({ data, defaultRest, sessionId, vibrate, onBack }: i
                                                                         inputMode='decimal'
                                                                         min={0}
                                                                         step='any'
+                                                                        disabled={set.done}
                                                                         value={set.weight || ''}
                                                                         placeholder='kg'
                                                                         onChange={(event) => sets.patch(set.id, { weight: number(event.target.value) })}
                                                                     />
                                                                 </label>
-                                                                {logged.length > 1 && !set.disabled && (
+                                                                {logged.length > 1 && !set.disabled && !set.done && (
                                                                     <button className='mini' title='This weight for all sets below' onClick={() => carryWeight(logged, set, lastSets)}>
                                                                         ⤓
                                                                     </button>
@@ -358,6 +384,7 @@ export const SessionView = ({ data, defaultRest, sessionId, vibrate, onBack }: i
                                                         <div className='set__actions'>
                                                             <button
                                                                 className={`mini ${set.kind ? 'mini--on' : ''}`}
+                                                                disabled={set.done}
                                                                 title={KIND_TITLE[set.kind ?? '']}
                                                                 onClick={() => sets.patch(set.id, { kind: NEXT_KIND[set.kind ?? ''] })}
                                                             >
@@ -365,6 +392,7 @@ export const SessionView = ({ data, defaultRest, sessionId, vibrate, onBack }: i
                                                             </button>
                                                             <button
                                                                 className={`mini ${set.disabled ? 'mini--on' : ''}`}
+                                                                disabled={set.done}
                                                                 title='Skipped on purpose'
                                                                 onClick={() => sets.patch(set.id, { disabled: !set.disabled })}
                                                             >
@@ -391,7 +419,7 @@ export const SessionView = ({ data, defaultRest, sessionId, vibrate, onBack }: i
                                                                     ▶
                                                                 </button>
                                                             )}
-                                                            <button className='mini' title='Remove set' onClick={() => sets.remove([set.id])}>
+                                                            <button className='mini' title='Remove set' disabled={set.done} onClick={() => sets.remove([set.id])}>
                                                                 −
                                                             </button>
                                                         </div>
@@ -428,6 +456,7 @@ export const SessionView = ({ data, defaultRest, sessionId, vibrate, onBack }: i
 
                                     <input
                                         className='line__comment'
+                                        disabled={finished}
                                         placeholder='Comment, e.g. rack spot, seat height'
                                         value={entry.notes ?? ''}
                                         onChange={(event) => entries.patch(entry.id, { notes: event.target.value })}

@@ -19,7 +19,7 @@
 import { useState } from 'react';
 
 // TeaType
-import { TeaButton, TeaCheckbox, TeaInput, TeaSelect, TeaTextarea, useConfirm } from '@teatype/components';
+import { TeaAutocomplete, TeaButton, TeaCheckbox, TeaInput, TeaSelect, TeaTextarea, useConfirm } from '@teatype/components';
 
 // Components
 import { Thumb } from '@/components/Thumb';
@@ -49,8 +49,15 @@ const number = (text: string): number => Math.max(0, Math.round(Number(text))) |
 export const WorkoutsView = ({ data }: iWorkoutsViewProps) => {
     const confirm = useConfirm();
     const [selected, setSelected] = useState<string | null>(null);
+    const [showArchived, setShowArchived] = useState(false);
+    const [search, setSearch] = useState('');
 
     const workouts = [...data.workoutList].sort((a, b) => a.name.localeCompare(b.name));
+    // Old versions and what was imported: kept for the stats, shown read-only
+    const archived = data.workouts.rows
+        .filter((row) => row.archived && row.name.toLowerCase().includes(search.trim().toLowerCase()))
+        .sort((a, b) => a.name.localeCompare(b.name) || (b.version ?? 1) - (a.version ?? 1));
+    const archivedCount = data.workouts.rows.filter((row) => row.archived).length;
     const workout = data.workoutById.get(selected ?? '') ?? workouts[0];
     const lines = workout ? data.linesOf(workout.id) : [];
     const locked = workout ? data.isLocked(workout.id) : false;
@@ -85,6 +92,23 @@ export const WorkoutsView = ({ data }: iWorkoutsViewProps) => {
             ),
         );
         setSelected(copy.id);
+    };
+
+    const archive = async () => {
+        const used = data.planDays.rows.filter((day) => day.workout === workout?.id && data.plans.rows.some((plan) => plan.id === day.plan && plan.active));
+        if (used.length) {
+            const ok = await confirm({
+                title: 'Archive workout',
+                message: `${workout?.name} is a day of ${used.length === 1 ? 'an active plan' : `${used.length} active plans`}. The plan keeps it, but it can not be picked for new days until it is unarchived.`,
+                confirmText: 'Archive',
+            });
+            if (!ok) {
+                return;
+            }
+        }
+        if (workout) {
+            data.workouts.patch(workout.id, { archived: true });
+        }
     };
 
     const remove = async () => {
@@ -152,7 +176,7 @@ export const WorkoutsView = ({ data }: iWorkoutsViewProps) => {
         <div key={main.id} className='slot'>
             <div className='slot__row'>
                 <Thumb exercise={data.exerciseById.get(main.exercise)} />
-                <TeaSelect className='slot__exercise' value={main.exercise} options={exerciseOptions} onChange={(event) => editSlot(main.id, { exercise: event.target.value })} />
+                <TeaAutocomplete className='slot__exercise' value={main.exercise} options={exerciseOptions} onChange={(exercise) => editSlot(main.id, { exercise })} />
                 <TeaInput className='slot__num' label='Sets' type='number' min={1} value={main.sets || ''} onChange={(event) => editSlot(main.id, { sets: number(event.target.value) || 1 })} />
                 <TeaInput className='slot__num' label='From' type='number' min={0} value={main.rep_min || ''} onChange={(event) => editSlot(main.id, { rep_min: number(event.target.value) })} />
                 <TeaInput className='slot__num' label='To' type='number' min={0} value={main.rep_max || ''} onChange={(event) => editSlot(main.id, { rep_max: number(event.target.value) })} />
@@ -167,7 +191,7 @@ export const WorkoutsView = ({ data }: iWorkoutsViewProps) => {
             {alternatives.map((alternative) => (
                 <div key={alternative.id} className='slot__row slot__row--alt'>
                     <span className='muted'>or</span>
-                    <TeaSelect className='slot__exercise' value={alternative.exercise} options={exerciseOptions} onChange={(event) => editSlot(alternative.id, { exercise: event.target.value })} />
+                    <TeaAutocomplete className='slot__exercise' value={alternative.exercise} options={exerciseOptions} onChange={(exercise) => editSlot(alternative.id, { exercise })} />
                     <TeaInput className='slot__num' type='number' min={0} placeholder='From' value={alternative.rep_min || ''} onChange={(event) => editSlot(alternative.id, { rep_min: number(event.target.value) })} />
                     <TeaInput className='slot__num' type='number' min={0} placeholder='To' value={alternative.rep_max || ''} onChange={(event) => editSlot(alternative.id, { rep_max: number(event.target.value) })} />
                     <button className='mini' title='Remove alternative' onClick={() => dropSlot(alternative.id)}>✕</button>
@@ -191,6 +215,24 @@ export const WorkoutsView = ({ data }: iWorkoutsViewProps) => {
                     </button>
                 ))}
                 {!workouts.length && <div className='empty'>No workouts yet.</div>}
+                {archivedCount > 0 && (
+                    <>
+                        <button className='list__toggle' onClick={() => setShowArchived(!showArchived)}>
+                            {showArchived ? '▾' : '▸'} Archived ({archivedCount})
+                        </button>
+                        {showArchived && (
+                            <>
+                                <TeaInput placeholder='Search archived' value={search} onChange={(event) => setSearch(event.target.value)} />
+                                {archived.map((row) => (
+                                    <button key={row.id} className={`list__item list__item--archived ${row.id === workout?.id ? 'list__item--on' : ''}`} onClick={() => setSelected(row.id)}>
+                                        {row.name}
+                                        <span className='muted'>v{row.version ?? 1}</span>
+                                    </button>
+                                ))}
+                            </>
+                        )}
+                    </>
+                )}
             </aside>
 
             {workout && (
@@ -201,6 +243,13 @@ export const WorkoutsView = ({ data }: iWorkoutsViewProps) => {
                             {locked ? ' · it was trained, so a change makes a new version and the old one stays for the stats' : ''}
                         </p>
                     )}
+                    {workout.archived && (
+                        <p className='editor__archived'>
+                            <span>Archived: an old version, an import or put away by you. It is kept for the stats and cannot be changed until it is unarchived.</span>
+                            <TeaButton size='small' onClick={() => data.workouts.patch(workout.id, { archived: false })}>Unarchive</TeaButton>
+                        </p>
+                    )}
+                    <fieldset className='editor__body' disabled={Boolean(workout.archived)}>
                     <div className='form form--row'>
                         <TeaInput label='Name' value={workout.name} onChange={(event) => edit({ name: event.target.value })} />
                         <TeaSelect label='Type' value={workout.kind} options={KINDS} onChange={(event) => edit({ kind: event.target.value as tKind })} />
@@ -226,8 +275,16 @@ export const WorkoutsView = ({ data }: iWorkoutsViewProps) => {
                     <div className='editor__actions'>
                         <TeaButton disabled={!exercises.length} onClick={() => addLine(false)}>Add exercise</TeaButton>
                         {!exercises.length && <span className='muted'>Create an exercise first.</span>}
-                        <span className='grow' />
+                    </div>
+                    </fieldset>
+                    <div className='editor__actions'>
+                        {workout.archived ? (
+                            <TeaButton onClick={() => data.workouts.patch(workout.id, { archived: false })}>Unarchive</TeaButton>
+                        ) : (
+                            <TeaButton onClick={() => void archive()}>Archive</TeaButton>
+                        )}
                         <TeaButton onClick={() => void duplicate()}>Duplicate</TeaButton>
+                        <span className='grow' />
                         <TeaButton theme='danger' onClick={() => void remove()}>Delete workout</TeaButton>
                     </div>
                 </section>

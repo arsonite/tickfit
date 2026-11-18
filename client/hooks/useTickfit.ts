@@ -138,7 +138,9 @@ const useTickfit = ({ error: toastError, info, success }: iUseTeaToastReturn, st
     // The day that is being trained: started and not finished
     const trainingSession = sessions.rows.find((session) => session.status === 'planned' && session.started_at && !session.finished_at);
 
-    const activePlan = plans.rows.find((plan) => plan.active);
+    // Only active plans can be put on a week; of those, the default is offered first
+    const activePlans = useMemo(() => plans.rows.filter((plan) => plan.active).sort((a, b) => a.name.localeCompare(b.name)), [plans.rows]);
+    const defaultPlan = activePlans.find((plan) => plan.default) ?? activePlans[0];
 
     /** The main lines of a workout, the warm-up first, each with the alternatives to it */
     const linesOf = useCallback(
@@ -251,8 +253,26 @@ const useTickfit = ({ error: toastError, info, success }: iUseTeaToastReturn, st
 
     // ---- The calendar: days are put there by hand, nothing is scheduled by itself
 
-    const activate = useCallback(
-        (id: string) => plans.current().forEach((plan) => plan.active !== (plan.id === id) && plans.patch(plan.id, { active: plan.id === id })),
+    /** Several plans can be active; one of them is the default. Without one, the first active plan becomes it. */
+    const settleDefault = useCallback(() => {
+        const active = plans.current().filter((plan) => plan.active).sort((a, b) => a.name.localeCompare(b.name));
+        const keep = active.find((plan) => plan.default) ?? active[0];
+        plans.current().forEach((plan) => plan.default !== (plan === keep) && plans.patch(plan.id, { default: plan === keep }));
+    }, [plans]);
+
+    const setActive = useCallback(
+        (id: string, active: boolean) => {
+            plans.patch(id, { active });
+            settleDefault();
+        },
+        [plans, settleDefault],
+    );
+
+    const setDefault = useCallback(
+        (id: string) => {
+            plans.patch(id, { active: true, default: true });
+            plans.current().forEach((plan) => plan.id !== id && plan.default && plans.patch(plan.id, { default: false }));
+        },
         [plans],
     );
 
@@ -260,8 +280,9 @@ const useTickfit = ({ error: toastError, info, success }: iUseTeaToastReturn, st
         (id: string) => {
             planDays.remove(planDays.current().filter((day) => day.plan === id).map((day) => day.id));
             plans.remove([id]);
+            settleDefault();
         },
-        [planDays, plans],
+        [planDays, plans, settleDefault],
     );
 
     /** Moves a day to another date, the day that is there changes places with it. Days that were trained stay. */
@@ -303,6 +324,23 @@ const useTickfit = ({ error: toastError, info, success }: iUseTeaToastReturn, st
         [info, planDays, sessions, success],
     );
 
+    /** One rest day on every free day of the week, with the rest workout there is (or a new one) */
+    const fillRestDays = useCallback(
+        (monday: string) => {
+            const taken = new Set(sessions.current().map((session) => session.date));
+            const dates = weekDays(monday).filter((date) => !taken.has(date));
+            if (!dates.length) {
+                info('Every day of the week has something already');
+                return;
+            }
+            const live = workouts.current().filter((workout) => !workout.archived && workout.kind === 'rest');
+            const rest = live.find((workout) => workout.name === 'Rest') ?? live[0] ?? workouts.add({ kind: 'rest', name: 'Rest' });
+            sessions.addMany(dates.map((date) => ({ date, plan_day: -1, status: 'planned' as const, workout: rest.id })));
+            success(`${dates.length} rest day${dates.length > 1 ? 's' : ''} added`);
+        },
+        [info, sessions, success, workouts],
+    );
+
     // What an older version of the app wrote ahead: days of a plan that nobody put there, from today on
     const isAutoPlanned = (session: iSession): boolean => session.status === 'planned' && !session.started_at && (session.plan_day ?? -1) >= 0 && session.date >= today();
     const autoPlanned = sessions.rows.filter(isAutoPlanned).length;
@@ -340,14 +378,15 @@ const useTickfit = ({ error: toastError, info, success }: iUseTeaToastReturn, st
         });
         slots.addMany(alternatives);
 
-        const plan = plans.add({ name: PLAN.name, active: false });
+        const plan = plans.add({ name: PLAN.name, active: false, default: false });
         planDays.addMany(PLAN.days.map((name, position) => ({ plan: plan.id, position, workout: workoutIds.get(name) as string })));
-        activate(plan.id);
+        setDefault(plan.id);
         success('Example plan added');
-    }, [activate, exercises, planDays, plans, slots, success, workouts]);
+    }, [exercises, planDays, plans, setDefault, slots, success, workouts]);
 
     return {
-        activePlan,
+        activePlans,
+        defaultPlan,
         entries,
         exerciseById,
         load,
@@ -365,9 +404,11 @@ const useTickfit = ({ error: toastError, info, success }: iUseTeaToastReturn, st
 
         sync: { save: sync.save, status: sync.status, unsavedCount: sync.unsavedCount },
 
-        activate,
+        setActive,
+        setDefault,
         addDay,
         applyPlan,
+        fillRestDays,
         autoPlanned,
         clearAutoPlanned,
         editable,

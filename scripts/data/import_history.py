@@ -215,7 +215,7 @@ class Importer:
                     days.append({'position': position, 'workout': row['id']})
             if not days:
                 continue
-            plan = self.api.create('Plan', [{'name': name, 'active': False, 'notes': '', 'rev': self.now}])[0]
+            plan = self.api.create('Plan', [{'name': name, 'active': False, 'default': False, 'notes': '', 'rev': self.now}])[0]
             self.api.create('PlanDay', [{'plan': plan['id'], **day, 'rev': self.now} for day in days])
             existing.add(name.casefold())
             added += 1

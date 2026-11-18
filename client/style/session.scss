@@ -104,8 +104,22 @@
     }
 
     &__last {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+
         color: var(--accent);
         font-size: 13px;
+    }
+
+    // Every set is done: dimmed until one is undone
+    &--finished {
+        .line__head,
+        .chips,
+        .line__comment {
+            opacity: 0.6;
+        }
     }
 
     &__comment {
@@ -164,6 +178,10 @@
     cursor: pointer;
     font: inherit;
     font-size: 12px;
+
+    &:disabled {
+        cursor: not-allowed;
+    }
 
     &--on {
         background: var(--accent-glow);
@@ -264,6 +282,11 @@
 
     &__transition {
         color: var(--transition);
+    }
+
+    input:disabled {
+        opacity: 0.55;
+        cursor: not-allowed;
     }
 
     &--off input {

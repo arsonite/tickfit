@@ -80,7 +80,7 @@ const define = <L extends iRow>(api: typeof HSDBBaseAPI, name: string, defaults:
 // A row points to rows of the collections before it, so this is also the order of saving
 const exerciseCollection = define<iExercise>(ExerciseAPI, 'exercises', { image: '', name: '', notes: '', unit: 'reps', weighted: false });
 const workoutCollection = define<iWorkout>(WorkoutAPI, 'workouts', { archived: false, family: '', focus: '', kind: 'strength', name: '', notes: '', rest_seconds: 0, version: 1, warmup: '' });
-const planCollection = define<iPlan>(PlanAPI, 'plans', { active: false, name: '', notes: '' });
+const planCollection = define<iPlan>(PlanAPI, 'plans', { active: false, default: false, name: '', notes: '' });
 const slotCollection = define<iSlot>(
     SlotAPI,
     'slots',
