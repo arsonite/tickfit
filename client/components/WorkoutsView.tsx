@@ -246,7 +246,6 @@ export const WorkoutsView = ({ data }: iWorkoutsViewProps) => {
                     {workout.archived && (
                         <p className='editor__archived'>
                             <span>Archived: an old version, an import or put away by you. It is kept for the stats and cannot be changed until it is unarchived.</span>
-                            <TeaButton size='small' onClick={() => data.workouts.patch(workout.id, { archived: false })}>Unarchive</TeaButton>
                         </p>
                     )}
                     <fieldset className='editor__body' disabled={Boolean(workout.archived)}>
