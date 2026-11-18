@@ -216,6 +216,25 @@ export const SettingsView = ({ data, onApply, onChange, onClose, settings, toast
             ],
         },
         {
+            id: 'layout',
+            label: 'Layout',
+            icon: <TableIcon />,
+            description: 'How the page is laid out on this device.',
+            groups: [
+                {
+                    id: 'sidebar',
+                    items: [
+                        {
+                            id: 'hide-sidebar',
+                            label: 'Hide the sidebar',
+                            description: 'No sidebar or rail. Swipe from the left edge to the right to open it.',
+                            control: { type: 'toggle', value: settings.hideSidebar, onChange: (value) => onChange('hideSidebar', value) },
+                        },
+                    ],
+                },
+            ],
+        },
+        {
             id: 'week',
             label: 'Week',
             icon: <TableIcon />,

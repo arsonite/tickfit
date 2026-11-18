@@ -37,10 +37,22 @@
     }
 
     &--mobile > main {
-        padding: calc(16px + env(safe-area-inset-top)) calc(14px + env(safe-area-inset-right)) calc(40px + env(safe-area-inset-bottom)) calc(58px + env(safe-area-inset-left));
+        padding: calc(16px + env(safe-area-inset-top)) calc(14px + env(safe-area-inset-right)) calc(40px + env(safe-area-inset-bottom)) calc(54px + env(safe-area-inset-left));
 
         .trainbar {
             top: -16px;
+        }
+    }
+
+    // No rail: the page has the whole width, the sidebar is a sheet that a swipe from the left edge brings in
+    &--hidden {
+        .tea-rail,
+        .tea-rail-background {
+            display: none;
+        }
+
+        > main {
+            padding-left: calc(20px + env(safe-area-inset-left));
         }
     }
 }

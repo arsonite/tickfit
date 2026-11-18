@@ -199,28 +199,25 @@ const UNIT_LABEL = { km: 'km', meters: 'm', minutes: 'min', reps: 'reps' };
 
 const unitOf = (exercise: iExercise): string => UNIT_LABEL[mainUnit(exercise)];
 
-/** 75 s -> "1:15" */
-const formatTime = (seconds: number): string => `${Math.floor(seconds / 60)}:${String(Math.round(seconds % 60)).padStart(2, '0')}`;
-
-/** "9 × 75", "9", "12:30", "5.2 km · 31:10", "400 m × 20" and DS / P / A behind a set that is not a normal one */
+/** "9 × 75kg", "9", "12min", "45s", "5.2km · 45s", "400m × 20kg" and DS / P / A behind a set that is not a normal one */
 const formatSet = (exercise: iExercise, log: Pick<iLog, 'kind' | 'value' | 'weight'> & { distance?: number; seconds?: number }): string => {
     const parts: string[] = [];
     if (exercise.unit === 'reps') {
         parts.push(formatNumber(log.value));
     } else if (exercise.unit === 'minutes') {
-        parts.push(formatTime(Math.round(log.value * 60)));
+        parts.push(`${formatNumber(log.value)}min`);
     } else if (exercise.unit === 'meters') {
-        parts.push(`${formatNumber(log.value)} m`);
+        parts.push(`${formatNumber(log.value)}m`);
     }
     if (exercise.timed && exercise.unit !== 'minutes' && log.seconds) {
-        parts.push(formatTime(log.seconds));
+        parts.push(`${formatNumber(log.seconds)}s`);
     }
     if (exercise.distanced && log.distance) {
-        parts.push(`${formatNumber(log.distance)} km`);
+        parts.push(`${formatNumber(log.distance)}km`);
     }
     const amount = parts.join(' · ');
-    const weight = exercise.weighted && log.weight > 0 ? formatNumber(log.weight) : '';
-    const text = weight ? (amount ? (exercise.unit === 'reps' ? `${amount} × ${weight}` : `${amount} · ${weight} kg`) : `${weight} kg`) : amount;
+    const weight = exercise.weighted && log.weight > 0 ? `${formatNumber(log.weight)}kg` : '';
+    const text = weight ? (amount ? (exercise.unit === 'reps' ? `${amount} × ${weight}` : `${amount} · ${weight}`) : weight) : amount;
     return log.kind ? `${text} ${log.kind}` : text;
 };
 

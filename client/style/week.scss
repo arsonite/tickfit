@@ -125,11 +125,11 @@
         white-space: nowrap;
     }
 
-    // Grey, so the state of the day shows at a glance: done, rest, today, still to come
+    // Grey, so the state of the day shows at a glance: done, rest, still to come (today has the green border)
     &__status {
-        position: absolute;
-        right: 10px;
-        bottom: 8px;
+        align-self: center;
+        flex: none;
+        margin: auto 0; // Centred in the space the text leaves
 
         color: var(--text-tertiary);
         opacity: 0.55;

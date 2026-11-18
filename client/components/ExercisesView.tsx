@@ -50,12 +50,55 @@ interface iBulk {
     weighted: string;
 }
 
+type tCount = 'km' | 'meters' | 'minutes' | 'reps' | 'seconds';
+
+const COUNTS: { label: string; short: string; value: tCount }[] = [
+    { label: 'Reps', short: 'reps', value: 'reps' },
+    { label: 'Minutes', short: 'min', value: 'minutes' },
+    { label: 'Seconds', short: 's', value: 'seconds' },
+    { label: 'Meters', short: 'm', value: 'meters' },
+    { label: 'Kilometers', short: 'km', value: 'km' },
+];
+
 const UNITS: { label: string; value: tUnit }[] = [
     { label: 'Reps', value: 'reps' },
     { label: 'Minutes', value: 'minutes' },
     { label: 'Meters', value: 'meters' },
-    { label: 'Nothing, only time, distance or weight', value: 'none' },
+    { label: 'Nothing of these', value: 'none' },
 ];
+
+type tCounted = Pick<iExercise, 'distanced' | 'timed' | 'unit'>;
+
+const hasCount = (exercise: tCounted, count: tCount): boolean =>
+    count === 'seconds' ? Boolean(exercise.timed) && exercise.unit !== 'minutes' : count === 'km' ? Boolean(exercise.distanced) : exercise.unit === count;
+
+/**
+ * Turns one count on or off. Minutes and seconds exclude each other, so do meters and kilometers; reps, minutes and
+ * meters are what the value of a set holds, so only one of those three can be on.
+ */
+const withCount = <T extends tCounted>(exercise: T, count: tCount, on: boolean = !hasCount(exercise, count)): T => {
+    const next = { ...exercise };
+    if (count === 'seconds') {
+        next.timed = on;
+        if (on && next.unit === 'minutes') {
+            next.unit = 'none';
+        }
+    } else if (count === 'km') {
+        next.distanced = on;
+        if (on && next.unit === 'meters') {
+            next.unit = 'none';
+        }
+    } else {
+        next.unit = on ? count : next.unit === count ? 'none' : next.unit;
+        if (on && count === 'minutes') {
+            next.timed = false;
+        }
+        if (on && count === 'meters') {
+            next.distanced = false;
+        }
+    }
+    return next;
+};
 
 const SWITCH = [
     { label: 'Keep', value: 'keep' },
@@ -68,13 +111,7 @@ const NO_BULK: iBulk = { category: '', distanced: 'keep', timed: 'keep', unit: '
 
 /** What an exercise counts, in a few words */
 const countsOf = (exercise: iExercise): string =>
-    [
-        exercise.category,
-        exercise.unit === 'none' ? '' : exercise.unit,
-        exercise.timed && exercise.unit !== 'minutes' ? 'time' : '',
-        exercise.distanced ? 'km' : '',
-        exercise.weighted ? 'kg' : '',
-    ]
+    [exercise.category, ...COUNTS.filter((count) => hasCount(exercise, count.value)).map((count) => count.short), exercise.weighted ? 'kg' : '']
         .filter(Boolean)
         .join(' · ');
 
@@ -168,13 +205,16 @@ export const ExercisesView = ({ data }: iExercisesViewProps) => {
         }
         const flag = (value: string, current?: boolean) => (value === 'keep' ? current : value === 'on');
         chosen.forEach((exercise) =>
-            data.exercises.patch(exercise.id, {
-                category: bulk.category.trim() || exercise.category,
-                distanced: flag(bulk.distanced, exercise.distanced),
-                timed: flag(bulk.timed, exercise.timed),
-                unit: bulk.unit === 'keep' ? exercise.unit : (bulk.unit as tUnit),
-                weighted: flag(bulk.weighted, exercise.weighted),
-            }),
+            {
+                let counted: tCounted = { distanced: exercise.distanced, timed: exercise.timed, unit: bulk.unit === 'keep' ? exercise.unit : (bulk.unit as tUnit) };
+                if (bulk.timed !== 'keep') {
+                    counted = withCount(counted, 'seconds', bulk.timed === 'on');
+                }
+                if (bulk.distanced !== 'keep') {
+                    counted = withCount(counted, 'km', bulk.distanced === 'on');
+                }
+                data.exercises.patch(exercise.id, { ...counted, category: bulk.category.trim() || exercise.category, weighted: flag(bulk.weighted, exercise.weighted) });
+            },
         );
         data.success(`${chosen.length} exercise${chosen.length === 1 ? '' : 's'} changed`);
         setBulk(null);
@@ -280,18 +320,26 @@ export const ExercisesView = ({ data }: iExercisesViewProps) => {
                         </div>
                         <TeaInput label='Name' value={draft.name} autoFocus onChange={(event) => setDraft({ ...draft, name: event.target.value })} />
                         <TeaInput label='Type' list='exercise-types' placeholder='e.g. pull, push, legs, cardio' value={draft.category ?? ''} onChange={(event) => setDraft({ ...draft, category: event.target.value })} />
-                        <TeaSelect label='Counted in' value={draft.unit} options={UNITS} onChange={(event) => setDraft({ ...draft, unit: event.target.value as tUnit })} />
+                        <div className='form__group'>
+                            <span className='form__label'>Counted in</span>
+                            <div className='chips'>
+                                {COUNTS.map((count) => (
+                                    <button
+                                        key={count.value}
+                                        type='button'
+                                        aria-pressed={hasCount(draft, count.value)}
+                                        className={`chip ${hasCount(draft, count.value) ? 'chip--on' : ''}`}
+                                        onClick={() => setDraft(withCount(draft, count.value))}
+                                    >
+                                        {count.label}
+                                    </button>
+                                ))}
+                            </div>
+                            <p className='muted form__hint'>Reps, minutes and meters share one value, so only one of them. Time is filled in when a set is finished.</p>
+                        </div>
                         <div className='form__checks'>
                             <TeaCheckbox label='Weight (kg)' checked={!!draft.weighted} onChange={(weighted) => setDraft({ ...draft, weighted })} />
-                            <TeaCheckbox
-                                label='Time (min : sec)'
-                                checked={!!draft.timed || draft.unit === 'minutes'}
-                                disabled={draft.unit === 'minutes'}
-                                onChange={(timed) => setDraft({ ...draft, timed })}
-                            />
-                            <TeaCheckbox label='Distance (km)' checked={!!draft.distanced} onChange={(distanced) => setDraft({ ...draft, distanced })} />
                         </div>
-                        <p className='muted form__hint'>The time of a set is filled in when it is finished, it can be changed.</p>
                         <TeaTextarea label='Notes' rows={3} placeholder='Seat height, grip, cues …' value={draft.notes ?? ''} onChange={(event) => setDraft({ ...draft, notes: event.target.value })} />
                     </fieldset>
                 )}
@@ -312,10 +360,10 @@ export const ExercisesView = ({ data }: iExercisesViewProps) => {
                 {bulk && (
                     <div className='form'>
                         <TeaInput label='Type' list='exercise-types' placeholder='Empty keeps the type' value={bulk.category} onChange={(event) => setBulk({ ...bulk, category: event.target.value })} />
-                        <TeaSelect label='Counted in' value={bulk.unit} options={[{ label: 'Keep', value: 'keep' }, ...UNITS]} onChange={(event) => setBulk({ ...bulk, unit: event.target.value })} />
+                        <TeaSelect label='Counted in (reps, minutes, meters)' value={bulk.unit} options={[{ label: 'Keep', value: 'keep' }, ...UNITS]} onChange={(event) => setBulk({ ...bulk, unit: event.target.value })} />
                         <TeaSelect label='Weight (kg)' value={bulk.weighted} options={SWITCH} onChange={(event) => setBulk({ ...bulk, weighted: event.target.value })} />
-                        <TeaSelect label='Time (min : sec)' value={bulk.timed} options={SWITCH} onChange={(event) => setBulk({ ...bulk, timed: event.target.value })} />
-                        <TeaSelect label='Distance (km)' value={bulk.distanced} options={SWITCH} onChange={(event) => setBulk({ ...bulk, distanced: event.target.value })} />
+                        <TeaSelect label='Seconds' value={bulk.timed} options={SWITCH} onChange={(event) => setBulk({ ...bulk, timed: event.target.value })} />
+                        <TeaSelect label='Kilometers' value={bulk.distanced} options={SWITCH} onChange={(event) => setBulk({ ...bulk, distanced: event.target.value })} />
                     </div>
                 )}
             </TeaModal>

@@ -22,6 +22,7 @@ import { useEffect, useState } from 'react';
 import { TeaConfirmProvider, TeaSidebar, TeaSyncStatus, TeaToastContainer, useTeaToast } from '@teatype/components';
 import useIsMobile from '@teatype/hooks/useIsMobile';
 import { SettingsIcon } from '@teatype/icons';
+import { edgeSwipe } from '@teatype/toolkit/gestures';
 
 // Components
 import { ExercisesView } from '@/components/ExercisesView';
@@ -67,10 +68,11 @@ const Tickfit = ({ stored }: { stored: tStored }) => {
 
     useWakeLock(settings.keepAwake && Boolean(data.training.session));
 
-    // On a phone the sidebar is a sheet over the page, it opens on demand and is not remembered
-    const expanded = mobile ? sheet : pinned;
+    // On a phone, or if it is hidden, the sidebar is a sheet over the page, it opens on demand and is not remembered
+    const sheeted = mobile || settings.hideSidebar;
+    const expanded = sheeted ? sheet : pinned;
     const toggle = () => {
-        if (mobile) {
+        if (sheeted) {
             setSheet((open) => !open);
         } else {
             localStorage.setItem(SIDEBAR_KEY, pinned ? 'closed' : 'open');
@@ -90,6 +92,9 @@ const Tickfit = ({ stored }: { stored: tStored }) => {
         setSheet(false);
     };
 
+    // Hidden, the sidebar comes in by a swipe from the left edge
+    useEffect(() => (settings.hideSidebar ? edgeSwipe(() => setSheet(true)) : undefined), [settings.hideSidebar]);
+
     // Escape closes the settings, like the back button
     useEffect(() => {
         if (!settingsOpen) {
@@ -101,10 +106,10 @@ const Tickfit = ({ stored }: { stored: tStored }) => {
     }, [settingsOpen]);
 
     return (
-        <div className={`app ${expanded && !mobile ? '' : 'app--rail'} ${mobile ? 'app--mobile' : ''}`}>
+        <div className={`app ${expanded && !sheeted ? '' : 'app--rail'} ${sheeted ? 'app--mobile' : ''} ${settings.hideSidebar ? 'app--hidden' : ''}`}>
             <TeaSidebar
                 expanded={expanded}
-                mobile={mobile}
+                mobile={sheeted}
                 title='tickfit'
                 footer={
                     <>

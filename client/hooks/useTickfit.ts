@@ -16,7 +16,7 @@
  */
 
 // React imports
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 // TeaType
 import type { iUseTeaToastReturn } from '@teatype/components/TeaToast';
@@ -43,7 +43,6 @@ import {
     workoutCollection,
 } from '@/sync';
 import { today, weekDays } from '@/tools/dates';
-import { isData, uploadImage } from '@/tools/files';
 import { EXERCISES, PLAN, WORKOUTS } from '@/tools/seed';
 import { familyOf, isTrained } from '@/tools/training';
 import { planImport } from '@/tools/transfer';
@@ -124,27 +123,6 @@ const useTickfit = ({ error: toastError, info, success }: iUseTeaToastReturn, st
         },
         onSync,
     });
-
-    // A picture is a data URL on the device until the server has it as a file, then the exercise only keeps the path
-    const { current: currentExercises, patch: patchExercise } = exercises;
-    const waiting = exercises.rows.find((exercise) => isData(exercise.image));
-    useEffect(() => {
-        if (!waiting || sync.status !== 'idle') {
-            return;
-        }
-        let cancelled = false;
-        uploadImage(waiting.image ?? '')
-            .then((path) => {
-                // Not if the picture was changed while it was sent
-                if (!cancelled && currentExercises().find((row) => row.id === waiting.id)?.image === waiting.image) {
-                    patchExercise(waiting.id, { image: path });
-                }
-            })
-            .catch(() => undefined); // It is tried again with the next sync
-        return () => {
-            cancelled = true;
-        };
-    }, [currentExercises, patchExercise, sync.status, waiting]);
 
     // One transaction, so the sync meta never says more than the saved tables
     // Nothing is written while the device copy is being thrown away, or the page would save it again when it reloads

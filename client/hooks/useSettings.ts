@@ -30,6 +30,8 @@ interface iSettings {
     autoStart: boolean;
     /** Pause between sets (s) of a workout that has none of its own */
     defaultRest: number;
+    /** No sidebar or rail, it comes in from the left edge by a swipe to the right */
+    hideSidebar: boolean;
     /** The screen stays on while training */
     keepAwake: boolean;
     lightMode: boolean;
@@ -39,12 +41,13 @@ interface iSettings {
     vibrate: boolean;
 }
 
-const DEFAULTS: iSettings = { accentColor: DEFAULT_ACCENT, autoStart: true, defaultRest: 90, keepAwake: true, lightMode: false, showLastWeek: true, vibrate: true };
+const DEFAULTS: iSettings = { accentColor: DEFAULT_ACCENT, autoStart: true, defaultRest: 90, hideSidebar: false, keepAwake: true, lightMode: false, showLastWeek: true, vibrate: true };
 
 const sanitize = (stored: Partial<iSettings>): iSettings => ({
     accentColor: sanitizeAccent(stored.accentColor, DEFAULT_ACCENT),
     autoStart: stored.autoStart ?? DEFAULTS.autoStart,
     defaultRest: Number.isFinite(stored.defaultRest) ? Math.min(600, Math.max(0, stored.defaultRest as number)) : DEFAULTS.defaultRest,
+    hideSidebar: stored.hideSidebar ?? DEFAULTS.hideSidebar,
     keepAwake: stored.keepAwake ?? DEFAULTS.keepAwake,
     lightMode: stored.lightMode ?? DEFAULTS.lightMode,
     showLastWeek: stored.showLastWeek ?? DEFAULTS.showLastWeek,

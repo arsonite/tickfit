@@ -349,7 +349,11 @@ export const SessionView = ({ autoStart, data, defaultRest, sessionId, vibrate, 
                                 .sort(byPosition);
                             const previous = lastRunOf(chosen.exercise);
                             const lastSets = previous?.sets ?? [];
-                            const weighted = Boolean(exercise?.weighted);
+                            // An exercise that was trained with weights before has weights, whatever its flag says
+                            const weighted = Boolean(exercise?.weighted) || lastSets.some((row) => row.weight);
+                            const takeable = logged
+                                .filter((set) => !set.disabled)
+                                .some((set, position) => !set.done && lastSets[position]?.weight);
                             const prefix = block.lines.length > 1 ? LETTERS[lineIndex] : '';
                             const current = training && logged.some(isRunning);
                             // Every set is done: nothing of the exercise changes until a set is undone
@@ -413,7 +417,7 @@ export const SessionView = ({ autoStart, data, defaultRest, sessionId, vibrate, 
                                     {previous && (
                                         <div className='line__last'>
                                             <span>Last trained {shortDate(previous.date)}</span>
-                                            {weighted && !finished && lastSets.some((row) => row.weight) && (
+                                            {weighted && takeable && (
                                                 <button
                                                     className='link'
                                                     title='The kg of the last time, set by set'
@@ -526,7 +530,7 @@ export const SessionView = ({ autoStart, data, defaultRest, sessionId, vibrate, 
                                                                 />
                                                             </label>
                                                         )}
-                                                        {exercise?.weighted && (
+                                                        {weighted && (
                                                             <>
                                                                 <label>
                                                                     <input

@@ -225,21 +225,21 @@ export const WeekView = ({ data, onNavigate, onOpen, showLastWeek }: iWeekViewPr
                                     <span className={`badge badge--${session.status}`}>
                                         {STATUS_LABEL[session.status]}
                                     </span>
-                                    <Icon
-                                        className='day__status'
-                                        size={36}
-                                        name={
-                                            workout?.kind === 'rest'
-                                                ? 'moon'
-                                                : session.status === 'done'
-                                                  ? 'check-circle'
-                                                  : session.status === 'skipped'
-                                                    ? 'skip'
-                                                    : date === now
-                                                      ? 'sun'
-                                                      : 'calendar'
-                                        }
-                                    />
+                                    {(workout?.kind === 'rest' || session.status !== 'planned' || date !== now) && (
+                                        <Icon
+                                            className='day__status'
+                                            size={36}
+                                            name={
+                                                workout?.kind === 'rest'
+                                                    ? 'moon'
+                                                    : session.status === 'done'
+                                                      ? 'check-circle'
+                                                      : session.status === 'skipped'
+                                                        ? 'skip'
+                                                        : 'calendar'
+                                            }
+                                        />
+                                    )}
                                 </button>
                             ) : (
                                 <button
@@ -266,26 +266,6 @@ export const WeekView = ({ data, onNavigate, onOpen, showLastWeek }: iWeekViewPr
 
                             {session && open && (
                                 <div className='day__menu'>
-                                    {!locked && (
-                                        <>
-                                            <button
-                                                onClick={() => {
-                                                    setMenu(null);
-                                                    data.moveDay(session.id, addDays(date, -1));
-                                                }}
-                                            >
-                                                <Icon name='chevron-left' /> A day earlier
-                                            </button>
-                                            <button
-                                                onClick={() => {
-                                                    setMenu(null);
-                                                    data.moveDay(session.id, addDays(date, 1));
-                                                }}
-                                            >
-                                                A day later <Icon name='chevron-right' />
-                                            </button>
-                                        </>
-                                    )}
                                     {session.status !== 'done' && (
                                         <button
                                             onClick={() => {

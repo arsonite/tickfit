@@ -21,22 +21,13 @@ import type { iExercise, iRow } from '@/types';
 type tTables = Record<string, iRow[]>;
 
 // Same origin as the HSDB api, the vite proxy and the nginx of homepie forward /hsdb to the server
-const ROOT = `${window.location.origin}${import.meta.env.BASE_URL.replace(/\/$/, '')}/hsdb/files`;
+const ROOT = `${window.location.origin}${import.meta.env.BASE_URL.replace(/\/$/, '')}/hsdb`;
 
-const isData = (image?: string): boolean => Boolean(image?.startsWith('data:'));
-
-/** Where the picture of an exercise is loaded from: a path of the server (rawfiles/<name>), or the data URL it still is on this device */
-const fileUrl = (image: string): string => (image.startsWith('rawfiles/') ? `${ROOT}/${image.slice('rawfiles/'.length)}` : image);
-
-/** Sends a picture that is still a data URL to the server, returns the path to keep with the exercise instead */
-const uploadImage = async (image: string): Promise<string> => {
-    const blob = await (await fetch(image)).blob();
-    const response = await fetch(ROOT, { method: 'POST', headers: { 'Content-Type': blob.type || 'application/octet-stream' }, body: blob });
-    if (!response.ok) {
-        throw new Error(`The picture was not accepted (${response.status})`);
-    }
-    return (await response.json()).path as string;
-};
+/**
+ * Where the picture of an exercise is loaded from: the path the server keeps in the exercise (rawfiles/image/<hash>.<ext>),
+ * or the data URL it still is on this device. The server turns the data URL into a file when the exercise is synced.
+ */
+const fileUrl = (image: string): string => (image.startsWith('rawfiles/') ? `${ROOT}/${image}` : image);
 
 const toDataUrl = (blob: Blob): Promise<string> =>
     new Promise((resolve, reject) => {
@@ -64,4 +55,4 @@ const embedImages = async (tables: tTables): Promise<tTables> => {
     return { ...tables, exercises };
 };
 
-export { embedImages, fileUrl, isData, uploadImage };
+export { embedImages, fileUrl };
