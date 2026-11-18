@@ -26,6 +26,8 @@ const DEFAULT_ACCENT = '#30d158';
 
 interface iSettings {
     accentColor: string;
+    /** The next set of the exercise starts by itself when the rest is over */
+    autoStart: boolean;
     /** Pause between sets (s) of a workout that has none of its own */
     defaultRest: number;
     /** The screen stays on while training */
@@ -37,10 +39,11 @@ interface iSettings {
     vibrate: boolean;
 }
 
-const DEFAULTS: iSettings = { accentColor: DEFAULT_ACCENT, defaultRest: 90, keepAwake: true, lightMode: false, showLastWeek: true, vibrate: true };
+const DEFAULTS: iSettings = { accentColor: DEFAULT_ACCENT, autoStart: true, defaultRest: 90, keepAwake: true, lightMode: false, showLastWeek: true, vibrate: true };
 
 const sanitize = (stored: Partial<iSettings>): iSettings => ({
     accentColor: sanitizeAccent(stored.accentColor, DEFAULT_ACCENT),
+    autoStart: stored.autoStart ?? DEFAULTS.autoStart,
     defaultRest: Number.isFinite(stored.defaultRest) ? Math.min(600, Math.max(0, stored.defaultRest as number)) : DEFAULTS.defaultRest,
     keepAwake: stored.keepAwake ?? DEFAULTS.keepAwake,
     lightMode: stored.lightMode ?? DEFAULTS.lightMode,

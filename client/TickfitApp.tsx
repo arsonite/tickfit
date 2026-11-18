@@ -149,7 +149,7 @@ const Tickfit = ({ stored }: { stored: tStored }) => {
                 {data.load === 'ready' && !settingsOpen && (
                     <>
                         {view === 'week' && sessionId && (
-                            <SessionView key={sessionId} data={data} defaultRest={settings.defaultRest} sessionId={sessionId} vibrate={settings.vibrate} onBack={() => setSessionId(null)} />
+                            <SessionView key={sessionId} data={data} autoStart={settings.autoStart} defaultRest={settings.defaultRest} sessionId={sessionId} vibrate={settings.vibrate} onBack={() => setSessionId(null)} />
                         )}
                         {view === 'week' && !sessionId && <WeekView data={data} showLastWeek={settings.showLastWeek} onNavigate={go} onOpen={setSessionId} />}
                         {view === 'exercises' && <ExercisesView data={data} />}

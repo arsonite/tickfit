@@ -38,6 +38,8 @@ import type { iTrained } from '@/tools/training';
 import type { iSet, iSlot, tSetKind, tUnit } from '@/types';
 
 interface iSessionViewProps {
+    /** Start the next set when the rest is over */
+    autoStart: boolean;
     data: tData;
     /** Pause between sets (s) for a workout that has none of its own */
     defaultRest: number;
@@ -63,7 +65,7 @@ const target = (sets: number, min?: number, max?: number): string => {
 };
 
 /** One day of training: the lines of the workout, the sets of each, and what was done the time before */
-export const SessionView = ({ data, defaultRest, sessionId, vibrate, onBack }: iSessionViewProps) => {
+export const SessionView = ({ autoStart, data, defaultRest, sessionId, vibrate, onBack }: iSessionViewProps) => {
     const session = data.sessions.rows.find((row) => row.id === sessionId);
     const { entries, sets } = data;
     const started = useRef(false);
@@ -261,7 +263,7 @@ export const SessionView = ({ data, defaultRest, sessionId, vibrate, onBack }: i
             </header>
 
             {training && (
-                <TrainBar data={data} defaultRest={defaultRest} describe={(set) => names.get(set.id) ?? 'Set'} next={follow} open={open} session={session} vibrate={vibrate} onFinish={finishSet} />
+                <TrainBar autoStart={autoStart} data={data} defaultRest={defaultRest} describe={(set) => names.get(set.id) ?? 'Set'} next={follow} open={open} session={session} vibrate={vibrate} onFinish={finishSet} />
             )}
 
             {blocks.map((block, blockIndex) => (

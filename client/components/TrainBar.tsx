@@ -29,6 +29,8 @@ import { clock, hasOpenRest, isRunning } from '@/tools/training';
 import type { iSession, iSet } from '@/types';
 
 interface iTrainBarProps {
+    /** Start the next set of the exercise when the rest is over */
+    autoStart: boolean;
     data: tData;
     /** Pause between sets (s) when the workout has none of its own */
     defaultRest: number;
@@ -51,7 +53,7 @@ interface iTrainBarProps {
  * the rest starts by itself after a round and the next set is shown. When an exercise is done the lifter picks the
  * next one in the list, the rest can still be started by hand.
  */
-export const TrainBar = ({ data, defaultRest, describe, next, onFinish, open, session, vibrate }: iTrainBarProps) => {
+export const TrainBar = ({ autoStart, data, defaultRest, describe, next, onFinish, open, session, vibrate }: iTrainBarProps) => {
     const now = useNow(true);
     const workout = data.workoutById.get(session.workout);
     const target = (workout?.rest_seconds || defaultRest) * 1000;
@@ -65,6 +67,7 @@ export const TrainBar = ({ data, defaultRest, describe, next, onFinish, open, se
 
     const elapsed = resting ? now - (resting.rest_started_at ?? now) : 0;
     const over = Boolean(resting && target && elapsed > target);
+    const due = Boolean(autoStart && resting && target && next && elapsed >= target);
 
     // A short buzz when the rest is used up, once per rest
     const buzzed = useRef<string | null>(null);
@@ -74,6 +77,16 @@ export const TrainBar = ({ data, defaultRest, describe, next, onFinish, open, se
             navigator.vibrate?.(250);
         }
     }, [over, resting, vibrate]);
+
+    // The rest is used up: on to the next set, which ends the rest
+    const nextId = next?.id;
+    const started = useRef<string | null>(null);
+    useEffect(() => {
+        if (due && nextId && resting && started.current !== resting.id) {
+            started.current = resting.id;
+            data.training.startSet(nextId);
+        }
+    }, [data.training, due, nextId, resting]);
 
     return (
         <div className={`trainbar ${running ? 'trainbar--set' : next ? 'trainbar--rest' : ''}`}>

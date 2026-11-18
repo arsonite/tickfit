@@ -192,6 +192,12 @@ export const SettingsView = ({ data, onApply, onChange, onClose, settings, toast
                             control: { type: 'slider', value: settings.defaultRest, min: 15, max: 300, step: 15, unit: ' s', onChange: (value) => onChange('defaultRest', value) },
                         },
                         {
+                            id: 'auto-start',
+                            label: 'Start the next set after the rest',
+                            description: 'When the rest is over, the next set of the exercise starts by itself. Without it, the rest keeps counting up until you start it.',
+                            control: { type: 'toggle', value: settings.autoStart, onChange: (value) => onChange('autoStart', value) },
+                        },
+                        {
                             id: 'vibrate',
                             label: 'Vibrate when the rest is over',
                             description: 'A short buzz, on phones that can.',
