@@ -16,7 +16,7 @@
  */
 
 // React imports
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 // TeaType
 import { TeaConfirmProvider, TeaSidebar, TeaSyncStatus, TeaToastContainer, useTeaToast } from '@teatype/components';
@@ -38,6 +38,7 @@ import { WorkoutsView } from '@/components/WorkoutsView';
 import { useSettings } from '@/hooks/useSettings';
 import { STORED_KEYS, useTickfit } from '@/hooks/useTickfit';
 import type { tStored } from '@/hooks/useTickfit';
+import { navigate, useRoute } from '@/hooks/useRoute';
 import { useWakeLock } from '@/hooks/useWakeLock';
 
 // Utility
@@ -59,11 +60,15 @@ const Tickfit = ({ stored }: { stored: tStored }) => {
     const toast = useTeaToast();
     const data = useTickfit(toast, stored);
     const mobile = useIsMobile();
-    const [view, setView] = useState<tView>('week');
-    const [sessionId, setSessionId] = useState<string | null>(null); // The day that is open, over the week
+    // Where the app is lives in the address, a reload (or a phone that reloads the page) lands on the same page
+    const route = useRoute();
+    const head = route.path[0];
+    const settingsOpen = head === 'settings';
+    const sessionId = head === 'day' ? (route.path[1] ?? null) : null; // The day that is open, over the week
+    const view: tView = NAV.find((item) => item.id === head)?.id ?? 'week';
+    const week = route.params.get('w') ?? undefined;
     const [pinned, setPinned] = useState(() => localStorage.getItem(SIDEBAR_KEY) !== 'closed');
     const [sheet, setSheet] = useState(false);
-    const [settingsOpen, setSettingsOpen] = useState(false);
     const { apply, change, settings } = useSettings();
 
     useWakeLock(settings.keepAwake && Boolean(data.training.session));
@@ -82,16 +87,22 @@ const Tickfit = ({ stored }: { stored: tStored }) => {
     };
 
     const go = (next: tView) => {
-        setView(next);
-        setSessionId(null);
-        setSettingsOpen(false);
+        route.go([next]);
         setSheet(false);
     };
 
+    // The day goes with the week it was opened from, so the way back is the same week
+    const openDay = (id: string) => route.go(['day', id], { w: week });
+    const closeDay = () => route.go(['week'], { w: week });
+
     const openSettings = () => {
-        setSettingsOpen(true);
+        route.go(['settings'], { from: route.path.join('/') });
         setSheet(false);
     };
+    const closeSettings = useCallback(() => {
+        const from = new URLSearchParams(window.location.hash.split('?')[1]).get('from');
+        navigate(from ? from.split('/') : ['week']);
+    }, []);
 
     // Hidden, the sidebar comes in by a swipe from the left edge
     useEffect(() => (hidden ? edgeSwipe(() => setSheet(true)) : undefined), [hidden]);
@@ -101,10 +112,10 @@ const Tickfit = ({ stored }: { stored: tStored }) => {
         if (!settingsOpen) {
             return;
         }
-        const close = (event: KeyboardEvent) => event.key === 'Escape' && setSettingsOpen(false);
+        const close = (event: KeyboardEvent) => event.key === 'Escape' && closeSettings();
         window.addEventListener('keydown', close);
         return () => window.removeEventListener('keydown', close);
-    }, [settingsOpen]);
+    }, [closeSettings, settingsOpen]);
 
     return (
         <div className={`app ${expanded && !sheeted ? '' : 'app--rail'} ${sheeted ? 'app--mobile' : ''} ${hidden ? 'app--hidden' : ''}`}>
@@ -142,22 +153,16 @@ const Tickfit = ({ stored }: { stored: tStored }) => {
 
             <main>
                 {!settingsOpen && !(view === 'week' && sessionId) && (
-                    <TrainBanner
-                        data={data}
-                        onOpen={(id) => {
-                            setView('week');
-                            setSessionId(id);
-                        }}
-                    />
+                    <TrainBanner data={data} onOpen={openDay} />
                 )}
                 {data.load === 'loading' && !settingsOpen && <div className='empty'>Loading…</div>}
-                {settingsOpen && <SettingsView data={data} settings={settings} toast={toast} onApply={apply} onChange={change} onClose={() => setSettingsOpen(false)} />}
+                {settingsOpen && <SettingsView data={data} settings={settings} toast={toast} onApply={apply} onChange={change} onClose={closeSettings} />}
                 {data.load === 'ready' && !settingsOpen && (
                     <>
                         {view === 'week' && sessionId && (
-                            <SessionView key={sessionId} data={data} autoStart={settings.autoStart} defaultRest={settings.defaultRest} sessionId={sessionId} vibrate={settings.vibrate} onBack={() => setSessionId(null)} />
+                            <SessionView key={sessionId} data={data} autoStart={settings.autoStart} defaultRest={settings.defaultRest} sessionId={sessionId} vibrate={settings.vibrate} onBack={closeDay} />
                         )}
-                        {view === 'week' && !sessionId && <WeekView data={data} showLastWeek={settings.showLastWeek} onNavigate={go} onOpen={setSessionId} />}
+                        {view === 'week' && !sessionId && <WeekView data={data} showLastWeek={settings.showLastWeek} onNavigate={go} onOpen={openDay} />}
                         {view === 'exercises' && <ExercisesView data={data} />}
                         {view === 'workouts' && <WorkoutsView data={data} />}
                         {view === 'plans' && <PlansView data={data} />}

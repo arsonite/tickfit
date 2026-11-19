@@ -32,6 +32,29 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
         <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
 
         <title>tickfit</title>
+
+        <!-- The page is not white while the style and the data load -->
+        <style>
+            html,
+            body {
+                background: #0a0a0b;
+            }
+        </style>
+        <script>
+            try {
+                if (JSON.parse(localStorage.getItem('tickfit-settings')).lightMode) {
+                    document.documentElement.classList.add('light-boot');
+                }
+            } catch (error) {
+                // No settings yet: the dark start
+            }
+        </script>
+        <style>
+            html.light-boot,
+            html.light-boot body {
+                background: #f8fafc;
+            }
+        </style>
     </head>
 
     <body>

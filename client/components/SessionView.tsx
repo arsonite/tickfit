@@ -32,7 +32,7 @@ import { useNow } from '@/hooks/useNow';
 // Utility
 import { shortDate, today, weekdayName } from '@/tools/dates';
 import { formatSet } from '@/tools/stats';
-import { clock, distanceShown, distanceStored, distanceUnit, familyOf, interleave, isOpen, isRunning, mainUnit, suggestNext, timeShown, timeStored, timeUnit, trainedHistory } from '@/tools/training';
+import { clock, distanceShown, distanceStored, distanceUnit, familyOf, interleave, isOpen, isRunning, justNow, mainUnit, suggestNext, timeShown, timeStored, timeUnit, trainedHistory } from '@/tools/training';
 import type { iTrained } from '@/tools/training';
 
 // Types
@@ -215,7 +215,13 @@ export const SessionView = ({ autoStart, data, defaultRest, sessionId, vibrate, 
     const nextId = follow?.id;
     useEffect(() => {
         if (training && nextId) {
-            document.querySelector(`[data-set="${nextId}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            const row = document.querySelector(`[data-set="${nextId}"]`);
+            const bar = document.querySelector('.trainbar')?.getBoundingClientRect().bottom ?? 0;
+            const box = row?.getBoundingClientRect();
+            // Only when it is out of sight (or under the bar): a page that moves on its own makes the next tap miss
+            if (box && (box.top < bar || box.bottom > window.innerHeight)) {
+                row?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
         }
     }, [nextId, training]);
 
@@ -579,7 +585,7 @@ export const SessionView = ({ autoStart, data, defaultRest, sessionId, vibrate, 
                                                                 <button
                                                                     className='mini mini--wide mini--run'
                                                                     title='Finish the set'
-                                                                    onClick={() => finishSet(set)}
+                                                                    onClick={() => !justNow(set.started_at) && finishSet(set)}
                                                                 >
                                                                     {clock(now - (set.started_at ?? now))} <Icon name='check' />
                                                                 </button>
@@ -587,7 +593,7 @@ export const SessionView = ({ autoStart, data, defaultRest, sessionId, vibrate, 
                                                                 <button
                                                                     className='mini mini--wide mini--ok'
                                                                     title='Undo'
-                                                                    onClick={() => data.training.undoSet(set.id)}
+                                                                    onClick={() => !justNow(set.ended_at) && data.training.undoSet(set.id)}
                                                                 >
                                                                     {ran
                                                                         ? clock(

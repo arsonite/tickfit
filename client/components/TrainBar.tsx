@@ -23,12 +23,15 @@ import type { tData } from '@/hooks/useTickfit';
 import { useNow } from '@/hooks/useNow';
 
 // Utility
-import { clock, hasOpenRest, isRunning } from '@/tools/training';
+import { clock, hasOpenRest, isRunning, justNow } from '@/tools/training';
 
 import { Icon } from '@/components/Icon';
 
 // Types
 import type { iSession, iSet } from '@/types';
+
+// A rest that ran out longer ago than this does not start the next set by itself
+const AUTO_START_WINDOW_MS = 10_000;
 
 interface iTrainBarProps {
     /** Start the next set of the exercise when the rest is over */
@@ -80,64 +83,80 @@ export const TrainBar = ({ autoStart, data, defaultRest, describe, next, onFinis
         }
     }, [over, resting, vibrate]);
 
-    // The rest is used up: on to the next set, which ends the rest
+    // The rest is used up: on to the next set, which ends the rest. Only when it runs out while the page is open: a page that was
+    // asleep or reloaded does not start a set the lifter is not ready for, the next set is one tap away.
     const nextId = next?.id;
     const started = useRef<string | null>(null);
+    const seen = useRef<string | null>(null);
     useEffect(() => {
-        if (due && nextId && resting && started.current !== resting.id) {
+        if (!resting) {
+            return;
+        }
+        if (!due) {
+            seen.current = resting.id;
+        } else if (seen.current === resting.id && started.current !== resting.id && nextId && elapsed - target < AUTO_START_WINDOW_MS) {
             started.current = resting.id;
             data.training.startSet(nextId);
         }
-    }, [data.training, due, nextId, resting]);
+    }, [data.training, due, elapsed, nextId, resting, target]);
+
+    const startNext = next && (
+        <button className='trainbar__go' title={describe(next)} onClick={() => data.training.startSet(next.id)}>
+            <Icon name='play' /> <span>{describe(next)}</span>
+        </button>
+    );
 
     return (
-        <div className={`trainbar ${running ? 'trainbar--set' : next ? 'trainbar--rest' : ''}`}>
-            <div className='trainbar__clock' title='Training time'>
-                {clock(now - (session.started_at ?? now))}
+        <div className={`trainbar ${running ? 'trainbar--set' : resting ? `trainbar--rest ${over ? 'trainbar--over' : ''}` : ''}`}>
+            <div className='trainbar__top'>
+                <span className='trainbar__clock' title='Training time'>
+                    {clock(now - (session.started_at ?? now))}
+                </span>
+                <span className='trainbar__what'>
+                    {running ? describe(running) : next ? `Next: ${describe(next)}` : open ? 'Pick the next exercise below' : 'Nothing open anymore, finish the workout'}
+                </span>
             </div>
 
-            {running ? (
-                <>
-                    <div className='trainbar__phase'>
-                        <span className='trainbar__label'>Set · {clock(now - (running.started_at ?? now))}</span>
-                        <span className='trainbar__what'>{describe(running)}</span>
-                    </div>
-                    <button className='trainbar__go' onClick={() => onFinish(running)}>
-                        Finish set <Icon name='check' />
-                    </button>
-                </>
-            ) : (
-                <>
-                    <div className='trainbar__phase'>
-                        <span className='trainbar__label'>{next ? 'Next set' : open ? 'Pick the next exercise' : 'Nothing open anymore'}</span>
-                        <span className='trainbar__what'>{next ? describe(next) : open ? 'Start a set of it in the list below' : 'Finish the workout when you are done'}</span>
-                    </div>
-
-                    {resting ? (
-                        <>
-                            <div className={`trainbar__rest ${over ? 'trainbar__rest--over' : ''}`}>
-                                <span>Rest {over ? `+${clock(elapsed - target)}` : clock(target - elapsed)}</span>
-                                <span className='trainbar__fill' style={{ width: `${Math.min(100, (elapsed / target) * 100)}%` }} />
-                            </div>
-                            <button className='mini mini--wide' onClick={() => data.training.endRest(session.id)}>
-                                Skip
+            <div className='trainbar__row'>
+                {running ? (
+                    <>
+                        <div className='trainbar__big'>
+                            <small>Set</small>
+                            {clock(now - (running.started_at ?? now))}
+                        </div>
+                        <button className='trainbar__go' onClick={() => !justNow(running.started_at) && onFinish(running)}>
+                            Finish set <Icon name='check' />
+                        </button>
+                    </>
+                ) : resting ? (
+                    <>
+                        <div className='trainbar__big'>
+                            <small>{over ? 'Rest over' : 'Rest'}</small>
+                            {over ? `+${clock(elapsed - target)}` : clock(target - elapsed)}
+                        </div>
+                        {startNext ?? (
+                            <button className='trainbar__go trainbar__go--quiet' onClick={() => data.training.endRest(session.id)}>
+                                Skip rest
                             </button>
-                        </>
-                    ) : (
-                        canRest && (
-                            <button className='trainbar__rest-btn' onClick={() => lastDone && data.training.startRest(lastDone.id)}>
+                        )}
+                    </>
+                ) : (
+                    <>
+                        {canRest && (
+                            <button className='trainbar__go trainbar__go--quiet' onClick={() => lastDone && data.training.startRest(lastDone.id)}>
                                 Start rest · {clock(target)}
                             </button>
-                        )
-                    )}
-                    {restDone && !resting && <span className='muted trainbar__hint'>Rested {clock((lastDone?.rest_ended_at ?? 0) - (lastDone?.rest_started_at ?? 0))}</span>}
+                        )}
+                        {startNext}
+                        {!canRest && !next && restDone && <span className='muted'>Rested {clock((lastDone?.rest_ended_at ?? 0) - (lastDone?.rest_started_at ?? 0))}</span>}
+                    </>
+                )}
+            </div>
 
-                    {next && (
-                        <button className='trainbar__go' title={describe(next)} onClick={() => data.training.startSet(next.id)}>
-                            <Icon name='play' /> {describe(next)}
-                        </button>
-                    )}
-                </>
+            {resting && !over && target > 0 && (
+                <div className='trainbar__track'>
+                    <span className='trainbar__fill' style={{ width: `${Math.min(100, (elapsed / target) * 100)}%` }} />
+                </div>
             )}
         </div>
     );

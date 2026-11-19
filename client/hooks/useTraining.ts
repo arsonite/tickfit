@@ -52,7 +52,8 @@ const useTraining = (sessions: iTable<iSession>, sets: iTable<iSet>) => {
     const startSet = useCallback(
         (id: string) => {
             const set = sets.current().find((row) => row.id === id);
-            if (!set) {
+            // A set that is going on is not started again (a second tap would reset its clock)
+            if (!set || isRunning(set)) {
                 return;
             }
             const now = Date.now();

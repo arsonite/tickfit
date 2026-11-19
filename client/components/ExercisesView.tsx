@@ -26,6 +26,7 @@ import { Icon } from '@/components/Icon';
 import { Thumb } from '@/components/Thumb';
 
 // Hooks
+import { useFlag, useParam } from '@/hooks/useRoute';
 import type { tData } from '@/hooks/useTickfit';
 
 // Utility
@@ -114,9 +115,9 @@ const countsOf = (exercise: iExercise): string =>
 export const ExercisesView = ({ data }: iExercisesViewProps) => {
     const confirm = useConfirm();
     const [draft, setDraft] = useState<tDraft | null>(null);
-    const [query, setQuery] = useState('');
-    const [type, setType] = useState('');
-    const [showArchived, setShowArchived] = useState(false);
+    const [query, setQuery] = useParam('q');
+    const [type, setType] = useParam('type');
+    const [showArchived, setShowArchived] = useFlag('archived');
     const [selecting, setSelecting] = useState(false);
     const [selected, setSelected] = useState<string[]>([]);
     const [bulk, setBulk] = useState<iBulk | null>(null);

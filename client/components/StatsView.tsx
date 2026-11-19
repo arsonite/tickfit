@@ -25,6 +25,7 @@ import { TeaCheckbox, TeaInput, TeaModal, TeaPanel, TeaSelect, TeaTable } from '
 import { BarChart, LineChart } from '@/components/StatsCharts';
 
 // Hooks
+import { useParam } from '@/hooks/useRoute';
 import type { tData } from '@/hooks/useTickfit';
 
 // Utility
@@ -422,10 +423,16 @@ const PlansTab = ({ ctx }: { ctx: iStatsContext }) => {
 
 /** What was trained: week by week, the records, each exercise and each plan, for a range of dates */
 export const StatsView = ({ data }: iStatsViewProps) => {
-    const [tab, setTab] = useState<tTab>('weeks');
-    const [kind, setKind] = useState<tRangeKind>('all');
-    const [custom, setCustom] = useState<iRange>({});
-    const [open, setOpen] = useState<string | null>(null);
+    // Tab, range and the open exercise are in the address, a reload stays where it was
+    const [tabParam, setTab] = useParam('tab', 'weeks');
+    const [kindParam, setKind] = useParam('range', 'all');
+    const [from, setFrom] = useParam('from');
+    const [to, setTo] = useParam('to');
+    const [openParam, setOpen] = useParam('open');
+    const tab = (TABS.find((item) => item.id === tabParam)?.id ?? 'weeks') as tTab;
+    const kind = (RANGES.find((item) => item.value === kindParam)?.value ?? 'all') as tRangeKind;
+    const custom = useMemo<iRange>(() => ({ from, to }), [from, to]);
+    const open = openParam || null;
 
     const { entries, exercises, planDays, plans, sessions, sets, slots, workouts } = data;
     const range = useMemo(() => rangeOf(kind, today(), custom), [kind, custom]);
@@ -440,11 +447,11 @@ export const StatsView = ({ data }: iStatsViewProps) => {
             <header className='page__head'>
                 <h1>Statistics</h1>
                 <div className='stats__range'>
-                    <TeaSelect aria-label='Range' options={RANGES} value={kind} onChange={(event) => setKind(event.target.value as tRangeKind)} />
+                    <TeaSelect aria-label='Range' options={RANGES} value={kind} onChange={(event) => setKind(event.target.value)} />
                     {kind === 'custom' && (
                         <>
-                            <TeaInput aria-label='From' max={custom.to || undefined} type='date' value={custom.from ?? ''} onChange={(event) => setCustom({ ...custom, from: event.target.value })} />
-                            <TeaInput aria-label='To' min={custom.from || undefined} type='date' value={custom.to ?? ''} onChange={(event) => setCustom({ ...custom, to: event.target.value })} />
+                            <TeaInput aria-label='From' max={custom.to || undefined} type='date' value={custom.from ?? ''} onChange={(event) => setFrom(event.target.value)} />
+                            <TeaInput aria-label='To' min={custom.from || undefined} type='date' value={custom.to ?? ''} onChange={(event) => setTo(event.target.value)} />
                         </>
                     )}
                 </div>
@@ -473,7 +480,7 @@ export const StatsView = ({ data }: iStatsViewProps) => {
                 </>
             )}
 
-            <ExerciseModal ctx={ctx} id={open} onClose={() => setOpen(null)} />
+            <ExerciseModal ctx={ctx} id={open} onClose={() => setOpen('')} />
         </div>
     );
 };

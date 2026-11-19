@@ -15,9 +15,6 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-// React imports
-import { useState } from 'react';
-
 // TeaType
 import { TeaAutocomplete, TeaButton, TeaCheckbox, TeaInput, TeaSelect, TeaTextarea, useConfirm } from '@teatype/components';
 
@@ -25,6 +22,7 @@ import { TeaAutocomplete, TeaButton, TeaCheckbox, TeaInput, TeaSelect, TeaTextar
 import { Thumb } from '@/components/Thumb';
 
 // Hooks
+import { useFlag, useParam, useSelected } from '@/hooks/useRoute';
 import type { tData } from '@/hooks/useTickfit';
 
 // Utility
@@ -50,9 +48,9 @@ const number = (text: string): number => Math.max(0, Math.round(Number(text))) |
 /** The workouts and the exercises in them, edited in place */
 export const WorkoutsView = ({ data }: iWorkoutsViewProps) => {
     const confirm = useConfirm();
-    const [selected, setSelected] = useState<string | null>(null);
-    const [showArchived, setShowArchived] = useState(false);
-    const [search, setSearch] = useState('');
+    const [selected, setSelected] = useSelected();
+    const [showArchived, setShowArchived] = useFlag('archived');
+    const [search, setSearch] = useParam('q');
 
     const workouts = [...data.workoutList].sort((a, b) => a.name.localeCompare(b.name));
     // Old versions and what was imported: kept for the stats, shown read-only

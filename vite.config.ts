@@ -1,7 +1,29 @@
-import { defineConfig, loadEnv, type UserConfig } from 'vite';
+import { defineConfig, loadEnv, type Plugin, type UserConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import eslint from 'vite-plugin-eslint';
 import { resolve } from 'path';
+
+/**
+ * Keeps a phone on the page it is on. Behind a proxy (homepie's nginx) or when Safari puts the page to sleep the HMR
+ * socket drops now and then, and the vite client answers that by reloading the whole page once the server is back:
+ * a white flash, and the workout that was open is gone. Here the socket is kept busy so it is not dropped for being
+ * idle, and when it drops anyway the client connects again instead of reloading.
+ */
+const steadyHmr = (): Plugin => ({
+    name: 'tickfit-steady-hmr',
+    apply: 'serve',
+    configureServer(server) {
+        const beat = setInterval(() => server.ws.send({ type: 'custom', event: 'tickfit:keepalive', data: {} }), 25_000);
+        server.httpServer?.on('close', () => clearInterval(beat));
+    },
+    transform(code, id) {
+        if (!id.endsWith('vite/dist/client/client.mjs')) {
+            return;
+        }
+        const reload = 'await waitForSuccessfulPing(protocol, hostAndPath);\n      location.reload();';
+        return code.includes(reload) ? code.replace(reload, 'await waitForSuccessfulPing(protocol, hostAndPath);\n      setupWebSocket(protocol, hostAndPath);') : undefined;
+    },
+});
 
 // Ports come from .env (see .env.template), the defaults match the app registry of homepie
 // (homepie/src/nginx/conf.d/00-homepie-apps.conf)
@@ -15,7 +37,7 @@ export const getBaseViteConfig = (): UserConfig => {
 
     return {
         base: basePath,
-        plugins: [react(), eslint()],
+        plugins: [react(), eslint(), steadyHmr()],
         resolve: {
             alias: {
                 '@': resolve(__dirname, 'client'),

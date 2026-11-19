@@ -24,6 +24,7 @@ import { Icon } from '@/components/Icon';
 import { usePointerDrag } from '@teatype/hooks/usePointerDrag';
 
 // Hooks
+import { useParam } from '@/hooks/useRoute';
 import type { tData } from '@/hooks/useTickfit';
 
 // Utility
@@ -48,7 +49,9 @@ const STATUS_LABEL = { done: 'Done', planned: 'Planned', skipped: 'Skipped' };
 /** The calendar week: seven days with the workout of each. Days are put there by hand or with a plan and moved by dragging. */
 export const WeekView = ({ data, onNavigate, onOpen, showLastWeek }: iWeekViewProps) => {
     const confirm = useConfirm();
-    const [monday, setMonday] = useState(() => mondayOf(today()));
+    // The week is in the address, so a reload and the way back from a day stay on it
+    const [weekParam, setMonday] = useParam('w', mondayOf(today()));
+    const monday = /^\d{4}-\d{2}-\d{2}$/.test(weekParam) ? mondayOf(weekParam) : mondayOf(today());
     const [menu, setMenu] = useState<string | null>(null); // The date whose actions are open
     const [adding, setAdding] = useState<string | null>(null);
     const [pick, setPick] = useState('');

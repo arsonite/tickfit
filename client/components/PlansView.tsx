@@ -15,15 +15,13 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-// React imports
-import { useState } from 'react';
-
 // TeaType
 import { TeaAutocomplete, TeaButton, TeaInput, TeaTextarea, useConfirm } from '@teatype/components';
 
 // Hooks
 import { Icon } from '@/components/Icon';
 
+import { useFlag, useParam, useSelected } from '@/hooks/useRoute';
 import type { tData } from '@/hooks/useTickfit';
 
 // Utility
@@ -36,9 +34,9 @@ interface iPlansViewProps {
 /** The plans: up to seven days of a week, one workout each, put on the free days of a week with "Add a plan" in the calendar */
 export const PlansView = ({ data }: iPlansViewProps) => {
     const confirm = useConfirm();
-    const [selected, setSelected] = useState<string | null>(null);
-    const [showArchived, setShowArchived] = useState(false);
-    const [search, setSearch] = useState('');
+    const [selected, setSelected] = useSelected();
+    const [showArchived, setShowArchived] = useFlag('archived');
+    const [search, setSearch] = useParam('q');
 
     const plans = [...data.planList].sort((a, b) => Number(Boolean(b.active)) - Number(Boolean(a.active)) || a.name.localeCompare(b.name));
     // Put away: kept for the stats and for the weeks they were used in, shown read-only

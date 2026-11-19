@@ -59,6 +59,10 @@ const hasOpenRest = (set: iSet): boolean => Boolean(set.rest_started_at) && !set
 /** Not done, not running and not skipped: still to do */
 const isOpen = (set: iSet): boolean => !set.disabled && !set.done && !set.started_at;
 
+/** Taps that come right after a set started or ended are the same tap twice: the button there is another one by then (Finish → Undo) */
+const TAP_GUARD_MS = 1000;
+const justNow = (at?: number): boolean => Boolean(at) && Date.now() - (at ?? 0) < TAP_GUARD_MS;
+
 /** A day that was trained (or is being) is history: it stays where it is and what was logged stays with it */
 const isTrained = (session?: iSession): boolean => Boolean(session && (session.status === 'done' || session.started_at));
 
@@ -134,5 +138,5 @@ const weekPlan = (days: (iSession | undefined)[], plans: iPlan[], planDays: iPla
     return match?.name ?? 'Custom';
 };
 
-export { clock, distanceShown, distanceStored, distanceUnit, familyOf, hasOpenRest, interleave, isOpen, isRunning, isTrained, mainUnit, suggestNext, timeShown, timeStored, timeUnit, trainedHistory, valueOf, weekPlan };
+export { clock, distanceShown, distanceStored, distanceUnit, familyOf, hasOpenRest, interleave, isOpen, isRunning, isTrained, justNow, mainUnit, suggestNext, timeShown, timeStored, timeUnit, trainedHistory, valueOf, weekPlan };
 export type { iTrained };

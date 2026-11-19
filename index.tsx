@@ -22,7 +22,7 @@ import ReactDOM from 'react-dom/client';
 import { TickfitApp } from './client/TickfitApp';
 
 // Utility
-import { lockGestures } from '@teatype/toolkit/gestures';
+import { lockGestures, pinViewport } from '@teatype/toolkit/gestures';
 
 // Style
 import '@teatype/style/globstyle.scss';
@@ -31,6 +31,8 @@ import '@/style/index.scss';
 
 // A phone page is an app: no zoom, no swipe back
 lockGestures();
+// Safari shifts the page up after the keyboard, which hides the top and leaves a white strip at the bottom
+pinViewport();
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
     <React.StrictMode>
