@@ -89,7 +89,7 @@ earlier server/client of this checkout (matched by path), so restarting never le
 | -------------------- | -------------------------------------------------------------------- |
 | `TICKFIT_PORT`       | Port of the HSDB server                                              |
 | `TICKFIT_CLIENT_PORT`| Port of the Vite client                                              |
-| `TICKFIT_BASE_PATH`  | `/` standalone, `/tickfit/` when served inside homepie (shows a back-to-hub link) |
+| `TICKFIT_BASE_PATH`  | `/` standalone and on `tickfit.homepie.net`, a path like `/tickfit/` only to serve it below one |
 | `TICKFIT_DATA_PATH`  | Where the HSDB data lives, empty for the default                     |
 
 An empty week offers "Add the example plan", the full-body plan of the old spreadsheet. Do not use it after seeding the exercises (see below), it adds its own copies of them.
