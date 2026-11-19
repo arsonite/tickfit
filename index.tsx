@@ -22,7 +22,7 @@ import ReactDOM from 'react-dom/client';
 import { TickfitApp } from './client/TickfitApp';
 
 // Utility
-import { lockGestures, pinViewport } from '@teatype/toolkit/gestures';
+import { fillScreen, lockGestures, pinViewport } from '@teatype/toolkit/gestures';
 
 // Style
 import '@teatype/style/globstyle.scss';
@@ -33,6 +33,8 @@ import '@/style/index.scss';
 lockGestures();
 // Safari shifts the page up after the keyboard, which hides the top and leaves a white strip at the bottom
 pinViewport();
+// With the page under the status bar, the body is as high as the screen
+fillScreen();
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
     <React.StrictMode>
