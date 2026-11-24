@@ -151,7 +151,10 @@ export const SessionView = ({ autoStart, data, defaultRest, sessionId, vibrate, 
         }
         return data
             .linesOf(session.workout)
-            .map((line) => ({ ...line, entry: entries.rows.find((entry) => entry.slot === line.main.id) }))
+            .map((line) => ({
+                ...line,
+                entry: entries.rows.find((entry) => entry.session === session.id && entry.slot === line.main.id),
+            }))
             .filter((line) => line.entry);
     }, [data, entries.rows, session]);
 
