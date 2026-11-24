@@ -29,7 +29,9 @@ const PATHS = {
     moon: <path d='M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5z' />,
     play: <path d='M8 5.5v13l11-6.5z' fill='currentColor' />,
     skip: <path d='M5 6l9 6-9 6zM18 5v14' />,
-    sun: <path d='M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4' />,
+    sun: (
+        <path d='M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4' />
+    ),
 } as const;
 
 type tIconName = keyof typeof PATHS;

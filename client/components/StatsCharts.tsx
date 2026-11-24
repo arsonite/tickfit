@@ -31,7 +31,10 @@ const STEPS = 4;
 // A round step (1, 1.2, 1.5, 2 ... times a power of ten) that is at least what is needed, never below 1
 const niceStep = (needed: number): number => {
     const base = 10 ** Math.floor(Math.log10(Math.max(needed, 1e-9)));
-    const step = [1, 1.2, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10].map((factor) => factor * base).find((candidate) => candidate >= needed - 1e-9) ?? base * 10;
+    const step =
+        [1, 1.2, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10]
+            .map((factor) => factor * base)
+            .find((candidate) => candidate >= needed - 1e-9) ?? base * 10;
     return Math.max(1, step);
 };
 
@@ -84,7 +87,16 @@ export const BarChart = ({ data, format = formatNumber }: iBarChartProps) => {
                 return (
                     <g key={item.label}>
                         <title>{`${item.label}: ${item.value === null ? '–' : format(item.value)}${item.hint ? ` (${item.hint})` : ''}`}</title>
-                        {item.value !== null && <rect className='chart__bar' height={Math.max(item.value ? 1.5 : 0, height)} rx={2} width={Math.max(1, slot * 0.7)} x={x + slot * 0.15} y={PAD.top + PLOT.height - height} />}
+                        {item.value !== null && (
+                            <rect
+                                className='chart__bar'
+                                height={Math.max(item.value ? 1.5 : 0, height)}
+                                rx={2}
+                                width={Math.max(1, slot * 0.7)}
+                                x={x + slot * 0.15}
+                                y={PAD.top + PLOT.height - height}
+                            />
+                        )}
                         {index % every === 0 && (
                             <text className='chart__label' textAnchor='middle' x={x + slot / 2} y={HEIGHT - 8}>
                                 {item.label.replace(/^\d{4} /, '')}
@@ -110,7 +122,10 @@ export const LineChart = ({ series }: iLineChartProps) => {
     const values = points.flatMap((point) => (point.value === null ? [] : [point.value]));
     const peak = Math.max(0, ...values);
     // Starts at zero unless the values stay in the upper part, then the lines would be flat
-    const { hi: top, lo: bottom } = scaleOf(peak, values.length && Math.min(...values) > peak * 0.4 ? Math.min(...values) * 0.9 : 0);
+    const { hi: top, lo: bottom } = scaleOf(
+        peak,
+        values.length && Math.min(...values) > peak * 0.4 ? Math.min(...values) * 0.9 : 0,
+    );
 
     const place = (date: string, value: number) => ({
         x: PAD.left + (span ? ((parse(date).getTime() - from) / span) * PLOT.width : PLOT.width / 2),
@@ -122,7 +137,13 @@ export const LineChart = ({ series }: iLineChartProps) => {
         <svg className='chart' viewBox={`0 0 ${WIDTH} ${HEIGHT}`} role='img'>
             <Grid hi={top} lo={bottom} />
             {[dates[0], dates[dates.length - 1]].map((date, index) => (
-                <text key={index} className='chart__label' textAnchor={index ? 'end' : 'start'} x={index ? WIDTH - PAD.right : PAD.left} y={HEIGHT - 8}>
+                <text
+                    key={index}
+                    className='chart__label'
+                    textAnchor={index ? 'end' : 'start'}
+                    x={index ? WIDTH - PAD.right : PAD.left}
+                    y={HEIGHT - 8}
+                >
                     {date ? shortDate(date) : ''}
                 </text>
             ))}

@@ -32,7 +32,23 @@ import { useNow } from '@/hooks/useNow';
 // Utility
 import { shortDate, today, weekdayName } from '@/tools/dates';
 import { formatSet } from '@/tools/stats';
-import { clock, distanceShown, distanceStored, distanceUnit, familyOf, interleave, isOpen, isRunning, justNow, mainUnit, suggestNext, timeShown, timeStored, timeUnit, trainedHistory } from '@/tools/training';
+import {
+    clock,
+    distanceShown,
+    distanceStored,
+    distanceUnit,
+    familyOf,
+    interleave,
+    isOpen,
+    isRunning,
+    justNow,
+    mainUnit,
+    suggestNext,
+    timeShown,
+    timeStored,
+    timeUnit,
+    trainedHistory,
+} from '@/tools/training';
 import type { iTrained } from '@/tools/training';
 
 // Types
@@ -312,10 +328,14 @@ export const SessionView = ({ autoStart, data, defaultRest, sessionId, vibrate, 
                         </span>
                     )}
                     {startable && (
-                        <TeaButton size='small' theme='filled' onClick={() => {
+                        <TeaButton
+                            size='small'
+                            theme='filled'
+                            onClick={() => {
                                 data.training.startSession(session.id);
                                 data.success('Workout started');
-                            }}>
+                            }}
+                        >
                             Start workout
                         </TeaButton>
                     )}
@@ -460,7 +480,12 @@ export const SessionView = ({ autoStart, data, defaultRest, sessionId, vibrate, 
                                                                 title={`Last trained ${shortDate(previous.date)}`}
                                                             >
                                                                 {before && exercise
-                                                                    ? formatSet(exercise, { ...before, kind: before.kind ?? '', value: before.value ?? 0, weight: before.weight ?? 0 }) || '–'
+                                                                    ? formatSet(exercise, {
+                                                                          ...before,
+                                                                          kind: before.kind ?? '',
+                                                                          value: before.value ?? 0,
+                                                                          weight: before.weight ?? 0,
+                                                                      }) || '–'
                                                                     : '–'}
                                                             </span>
                                                         )}
@@ -491,7 +516,10 @@ export const SessionView = ({ autoStart, data, defaultRest, sessionId, vibrate, 
                                                                     placeholder={UNIT_LABEL[timeUnit(exercise)]}
                                                                     onChange={(event) =>
                                                                         sets.patch(set.id, {
-                                                                            seconds: timeStored(number(event.target.value), exercise),
+                                                                            seconds: timeStored(
+                                                                                number(event.target.value),
+                                                                                exercise,
+                                                                            ),
                                                                         })
                                                                     }
                                                                 />
@@ -508,7 +536,10 @@ export const SessionView = ({ autoStart, data, defaultRest, sessionId, vibrate, 
                                                                     placeholder={UNIT_LABEL[distanceUnit(exercise)]}
                                                                     onChange={(event) =>
                                                                         sets.patch(set.id, {
-                                                                            distance: distanceStored(number(event.target.value), exercise),
+                                                                            distance: distanceStored(
+                                                                                number(event.target.value),
+                                                                                exercise,
+                                                                            ),
                                                                         })
                                                                     }
                                                                 />
@@ -588,15 +619,21 @@ export const SessionView = ({ autoStart, data, defaultRest, sessionId, vibrate, 
                                                                 <button
                                                                     className='mini mini--wide mini--run'
                                                                     title='Finish the set'
-                                                                    onClick={() => !justNow(set.started_at) && finishSet(set)}
+                                                                    onClick={() =>
+                                                                        !justNow(set.started_at) && finishSet(set)
+                                                                    }
                                                                 >
-                                                                    {clock(now - (set.started_at ?? now))} <Icon name='check' />
+                                                                    {clock(now - (set.started_at ?? now))}{' '}
+                                                                    <Icon name='check' />
                                                                 </button>
                                                             ) : set.done ? (
                                                                 <button
                                                                     className='mini mini--wide mini--ok'
                                                                     title='Undo'
-                                                                    onClick={() => !justNow(set.ended_at) && data.training.undoSet(set.id)}
+                                                                    onClick={() =>
+                                                                        !justNow(set.ended_at) &&
+                                                                        data.training.undoSet(set.id)
+                                                                    }
                                                                 >
                                                                     {ran
                                                                         ? clock(
@@ -680,10 +717,13 @@ export const SessionView = ({ autoStart, data, defaultRest, sessionId, vibrate, 
 
             <footer className='session__foot'>
                 {training ? (
-                    <TeaButton theme='filled' onClick={() => {
+                    <TeaButton
+                        theme='filled'
+                        onClick={() => {
                             data.training.finishSession(session.id);
                             data.success('Workout finished');
-                        }}>
+                        }}
+                    >
                         Finish workout
                     </TeaButton>
                 ) : (

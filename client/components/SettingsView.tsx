@@ -85,12 +85,14 @@ export const SettingsView = ({ data, onApply, onChange, onClose, settings, toast
     };
 
     // The pictures are in the file itself, so it can be restored on any server
-    const exportKind = async (kind: tExportKind, name: string, message: string) => download(exportFile(kind, await embedImages(data.snapshot())), `${name}-${stamp()}.json`, message);
+    const exportKind = async (kind: tExportKind, name: string, message: string) =>
+        download(exportFile(kind, await embedImages(data.snapshot())), `${name}-${stamp()}.json`, message);
 
     const restore = async () => {
         const ok = await confirm({
             title: 'Restore backup',
-            message: 'Everything here, the exercises, workouts, plans and the whole log, is replaced with the contents of the backup file, and so is what is on the server after the next sync. Settings of this device are replaced as well. This cannot be undone.',
+            message:
+                'Everything here, the exercises, workouts, plans and the whole log, is replaced with the contents of the backup file, and so is what is on the server after the next sync. Settings of this device are replaced as well. This cannot be undone.',
             confirmText: 'Choose file',
             variant: 'danger',
         });
@@ -123,7 +125,10 @@ export const SettingsView = ({ data, onApply, onChange, onClose, settings, toast
             return;
         }
         const { added, updated } = data.importTables(tables);
-        const parts = [added && `${added} row${added === 1 ? '' : 's'} imported`, updated && `${updated} exercise${updated === 1 ? '' : 's'} completed`].filter(Boolean);
+        const parts = [
+            added && `${added} row${added === 1 ? '' : 's'} imported`,
+            updated && `${updated} exercise${updated === 1 ? '' : 's'} completed`,
+        ].filter(Boolean);
         toast.success(parts.length ? parts.join(', ') : 'Nothing new in this file');
     };
 
@@ -158,7 +163,11 @@ export const SettingsView = ({ data, onApply, onChange, onClose, settings, toast
                             id: 'light-mode',
                             label: 'Light mode',
                             description: 'Dark text on a light background.',
-                            control: { type: 'toggle', value: settings.lightMode, onChange: (value) => onChange('lightMode', value) },
+                            control: {
+                                type: 'toggle',
+                                value: settings.lightMode,
+                                onChange: (value) => onChange('lightMode', value),
+                            },
                         },
                         {
                             id: 'accent-color',
@@ -169,8 +178,14 @@ export const SettingsView = ({ data, onApply, onChange, onClose, settings, toast
                                 type: 'custom',
                                 render: () => (
                                     <span className='accent-picker'>
-                                        <input type='color' value={settings.accentColor} onChange={(event) => onChange('accentColor', event.target.value)} />
-                                        <TeaButton onClick={() => onChange('accentColor', DEFAULT_ACCENT)}>Reset</TeaButton>
+                                        <input
+                                            type='color'
+                                            value={settings.accentColor}
+                                            onChange={(event) => onChange('accentColor', event.target.value)}
+                                        />
+                                        <TeaButton onClick={() => onChange('accentColor', DEFAULT_ACCENT)}>
+                                            Reset
+                                        </TeaButton>
                                     </span>
                                 ),
                             },
@@ -192,25 +207,46 @@ export const SettingsView = ({ data, onApply, onChange, onClose, settings, toast
                             id: 'default-rest',
                             label: 'Rest between sets',
                             description: 'Used when a workout has no rest of its own.',
-                            control: { type: 'slider', value: settings.defaultRest, min: 15, max: 300, step: 15, unit: ' s', onChange: (value) => onChange('defaultRest', value) },
+                            control: {
+                                type: 'slider',
+                                value: settings.defaultRest,
+                                min: 15,
+                                max: 300,
+                                step: 15,
+                                unit: ' s',
+                                onChange: (value) => onChange('defaultRest', value),
+                            },
                         },
                         {
                             id: 'auto-start',
                             label: 'Start the next set after the rest',
-                            description: 'When the rest is over, the next set of the exercise starts by itself. Without it, the rest keeps counting up until you start it.',
-                            control: { type: 'toggle', value: settings.autoStart, onChange: (value) => onChange('autoStart', value) },
+                            description:
+                                'When the rest is over, the next set of the exercise starts by itself. Without it, the rest keeps counting up until you start it.',
+                            control: {
+                                type: 'toggle',
+                                value: settings.autoStart,
+                                onChange: (value) => onChange('autoStart', value),
+                            },
                         },
                         {
                             id: 'vibrate',
                             label: 'Vibrate when the rest is over',
                             description: 'A short buzz, on phones that can.',
-                            control: { type: 'toggle', value: settings.vibrate, onChange: (value) => onChange('vibrate', value) },
+                            control: {
+                                type: 'toggle',
+                                value: settings.vibrate,
+                                onChange: (value) => onChange('vibrate', value),
+                            },
                         },
                         {
                             id: 'keep-awake',
                             label: 'Keep the screen on',
                             description: 'While a workout is running, if the browser allows it.',
-                            control: { type: 'toggle', value: settings.keepAwake, onChange: (value) => onChange('keepAwake', value) },
+                            control: {
+                                type: 'toggle',
+                                value: settings.keepAwake,
+                                onChange: (value) => onChange('keepAwake', value),
+                            },
                         },
                     ],
                 },
@@ -228,8 +264,13 @@ export const SettingsView = ({ data, onApply, onChange, onClose, settings, toast
                         {
                             id: 'hide-sidebar',
                             label: 'Hide the sidebar',
-                            description: 'On a phone: no sidebar or rail, swipe from the left edge to the right to open it. The desktop ignores this.',
-                            control: { type: 'toggle', value: settings.hideSidebar, onChange: (value) => onChange('hideSidebar', value) },
+                            description:
+                                'On a phone: no sidebar or rail, swipe from the left edge to the right to open it. The desktop ignores this.',
+                            control: {
+                                type: 'toggle',
+                                value: settings.hideSidebar,
+                                onChange: (value) => onChange('hideSidebar', value),
+                            },
                         },
                     ],
                 },
@@ -248,7 +289,11 @@ export const SettingsView = ({ data, onApply, onChange, onClose, settings, toast
                             id: 'show-last-week',
                             label: 'Show last week',
                             description: 'What was on the same weekday a week ago, in each day.',
-                            control: { type: 'toggle', value: settings.showLastWeek, onChange: (value) => onChange('showLastWeek', value) },
+                            control: {
+                                type: 'toggle',
+                                value: settings.showLastWeek,
+                                onChange: (value) => onChange('showLastWeek', value),
+                            },
                         },
                     ],
                 },
@@ -266,13 +311,16 @@ export const SettingsView = ({ data, onApply, onChange, onClose, settings, toast
                         {
                             id: 'sync-now',
                             label: 'Sync now',
-                            description: data.sync.unsavedCount ? `${data.sync.unsavedCount} change${data.sync.unsavedCount > 1 ? 's' : ''} not on the server yet.` : 'Everything is on the server.',
+                            description: data.sync.unsavedCount
+                                ? `${data.sync.unsavedCount} change${data.sync.unsavedCount > 1 ? 's' : ''} not on the server yet.`
+                                : 'Everything is on the server.',
                             control: { type: 'button', label: 'Sync', onClick: () => void data.sync.save() },
                         },
                         {
                             id: 'clear-local',
                             label: 'Clear local data',
-                            description: 'Deletes the copy on this device and fetches everything from the server again. Changes that are not on the server yet are sent first.',
+                            description:
+                                'Deletes the copy on this device and fetches everything from the server again. Changes that are not on the server yet are sent first.',
                             control: { type: 'button', label: 'Clear', theme: 'danger', onClick: () => void refetch() },
                         },
                     ],
@@ -280,18 +328,33 @@ export const SettingsView = ({ data, onApply, onChange, onClose, settings, toast
                 {
                     id: 'backup',
                     title: 'Backup',
-                    description: 'One file with all exercises, workouts, plans and the whole log, and the settings of this device.',
+                    description:
+                        'One file with all exercises, workouts, plans and the whole log, and the settings of this device.',
                     items: [
                         {
                             id: 'backup-export',
                             label: 'Full backup',
-                            control: { type: 'button', label: 'Download', onClick: async () => download(backupFile(await embedImages(data.snapshot()), settings), `backup-${stamp()}.json`, 'Backup downloaded') },
+                            control: {
+                                type: 'button',
+                                label: 'Download',
+                                onClick: async () =>
+                                    download(
+                                        backupFile(await embedImages(data.snapshot()), settings),
+                                        `backup-${stamp()}.json`,
+                                        'Backup downloaded',
+                                    ),
+                            },
                         },
                         {
                             id: 'backup-restore',
                             label: 'Restore backup',
                             description: 'Replaces everything here with the contents of a backup file.',
-                            control: { type: 'button', label: 'Restore', theme: 'danger', onClick: () => void restore() },
+                            control: {
+                                type: 'button',
+                                label: 'Restore',
+                                theme: 'danger',
+                                onClick: () => void restore(),
+                            },
                         },
                     ],
                 },
@@ -302,23 +365,46 @@ export const SettingsView = ({ data, onApply, onChange, onClose, settings, toast
                         {
                             id: 'export-exercises',
                             label: 'Exercises',
-                            control: { type: 'button', label: 'Export', onClick: () => exportKind('exercises', 'exercises', 'Exercises exported') },
+                            control: {
+                                type: 'button',
+                                label: 'Export',
+                                onClick: () => exportKind('exercises', 'exercises', 'Exercises exported'),
+                            },
                         },
                         {
                             id: 'export-plans',
                             label: 'Workouts and plans',
                             description: 'With the exercises they use.',
-                            control: { type: 'button', label: 'Export', onClick: () => exportKind('plans', 'plans', 'Workouts and plans exported') },
+                            control: {
+                                type: 'button',
+                                label: 'Export',
+                                onClick: () => exportKind('plans', 'plans', 'Workouts and plans exported'),
+                            },
                         },
                         {
                             id: 'export-log',
                             label: 'Training log',
-                            description: 'Every day with its sets and times, as JSON that can be imported again, or one line per finished set for a spreadsheet.',
+                            description:
+                                'Every day with its sets and times, as JSON that can be imported again, or one line per finished set for a spreadsheet.',
                             control: {
                                 type: 'buttons',
                                 buttons: [
-                                    { id: 'json', label: 'JSON', onClick: () => exportKind('log', 'log', 'Training log exported') },
-                                    { id: 'csv', label: 'CSV', onClick: () => download(logCsv(data.snapshot()), `log-${stamp()}.csv`, 'Training log exported', 'text/csv') },
+                                    {
+                                        id: 'json',
+                                        label: 'JSON',
+                                        onClick: () => exportKind('log', 'log', 'Training log exported'),
+                                    },
+                                    {
+                                        id: 'csv',
+                                        label: 'CSV',
+                                        onClick: () =>
+                                            download(
+                                                logCsv(data.snapshot()),
+                                                `log-${stamp()}.csv`,
+                                                'Training log exported',
+                                                'text/csv',
+                                            ),
+                                    },
                                 ],
                             },
                         },
@@ -326,7 +412,16 @@ export const SettingsView = ({ data, onApply, onChange, onClose, settings, toast
                             id: 'export-settings',
                             label: 'Settings',
                             description: 'Of this device.',
-                            control: { type: 'button', label: 'Export', onClick: () => download(JSON.stringify({ type: SETTINGS_TYPE, version: 1, settings }, null, 2), `settings-${stamp()}.json`, 'Settings exported') },
+                            control: {
+                                type: 'button',
+                                label: 'Export',
+                                onClick: () =>
+                                    download(
+                                        JSON.stringify({ type: SETTINGS_TYPE, version: 1, settings }, null, 2),
+                                        `settings-${stamp()}.json`,
+                                        'Settings exported',
+                                    ),
+                            },
                         },
                     ],
                 },
@@ -337,7 +432,8 @@ export const SettingsView = ({ data, onApply, onChange, onClose, settings, toast
                         {
                             id: 'import-data',
                             label: 'Exercises, workouts, plans and log',
-                            description: 'A file of an export. What is here already (same id) is skipped, an exercise with the name of one here is not added twice but gets the counts it lacks.',
+                            description:
+                                'A file of an export. What is here already (same id) is skipped, an exercise with the name of one here is not added twice but gets the counts it lacks.',
                             control: { type: 'button', label: 'Import', onClick: () => void importData() },
                         },
                         {
@@ -353,14 +449,22 @@ export const SettingsView = ({ data, onApply, onChange, onClose, settings, toast
                         {
                             id: 'example',
                             label: 'Example plan',
-                            description: 'The plan of the old spreadsheet with its exercises, added next to what is there.',
+                            description:
+                                'The plan of the old spreadsheet with its exercises, added next to what is there.',
                             control: { type: 'button', label: 'Add', onClick: data.seed },
                         },
                         {
                             id: 'auto-planned',
                             label: 'Remove auto-planned days',
-                            description: data.autoPlanned ? `${data.autoPlanned} upcoming days were filled in by an older version of the app.` : 'No upcoming day was filled in by itself.',
-                            control: { type: 'button', label: 'Remove', theme: 'danger', onClick: () => void clearAutoPlanned() },
+                            description: data.autoPlanned
+                                ? `${data.autoPlanned} upcoming days were filled in by an older version of the app.`
+                                : 'No upcoming day was filled in by itself.',
+                            control: {
+                                type: 'button',
+                                label: 'Remove',
+                                theme: 'danger',
+                                onClick: () => void clearAutoPlanned(),
+                            },
                         },
                     ],
                 },

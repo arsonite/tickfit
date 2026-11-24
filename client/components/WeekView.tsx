@@ -136,47 +136,47 @@ export const WeekView = ({ data, onNavigate, onOpen, showLastWeek }: iWeekViewPr
                 </div>
                 <div className='week__nav'>
                     <div className='week__plan'>
-                    <TeaButton
-                        size='small'
-                        onClick={() => {
-                            setPlan(data.defaultPlan?.id ?? '');
-                            setApplying(true);
-                        }}
-                    >
-                        Add a plan
-                    </TeaButton>
-                    <TeaButton size='small' disabled={!free} onClick={() => data.fillRestDays(monday)}>
-                        Fill with rest days
-                    </TeaButton>
-                    </div>
-                    <div className='week__step'>
-                    <span
-                        className={`week__arrow ${drag?.target === 'week:-1' ? 'week__arrow--over' : ''}`}
-                        data-drop='week:-1'
-                    >
-                        <TeaButton size='small' onClick={() => setMonday(addDays(monday, -7))}>
-                            <Icon name='chevron-left' />
-                        </TeaButton>
-                    </span>
-                    <TeaButton
-                        size='small'
-                        disabled={monday === mondayOf(now)}
-                        onClick={() => setMonday(mondayOf(now))}
-                    >
-                        Today
-                    </TeaButton>
-                    <span
-                        className={`week__arrow ${drag?.target === 'week:1' ? 'week__arrow--over' : ''}`}
-                        data-drop='week:1'
-                    >
                         <TeaButton
                             size='small'
-                            disabled={monday >= addDays(mondayOf(now), MAX_WEEKS_AHEAD * 7)}
-                            onClick={() => setMonday(addDays(monday, 7))}
+                            onClick={() => {
+                                setPlan(data.defaultPlan?.id ?? '');
+                                setApplying(true);
+                            }}
                         >
-                            <Icon name='chevron-right' />
+                            Add a plan
                         </TeaButton>
-                    </span>
+                        <TeaButton size='small' disabled={!free} onClick={() => data.fillRestDays(monday)}>
+                            Fill with rest days
+                        </TeaButton>
+                    </div>
+                    <div className='week__step'>
+                        <span
+                            className={`week__arrow ${drag?.target === 'week:-1' ? 'week__arrow--over' : ''}`}
+                            data-drop='week:-1'
+                        >
+                            <TeaButton size='small' onClick={() => setMonday(addDays(monday, -7))}>
+                                <Icon name='chevron-left' />
+                            </TeaButton>
+                        </span>
+                        <TeaButton
+                            size='small'
+                            disabled={monday === mondayOf(now)}
+                            onClick={() => setMonday(mondayOf(now))}
+                        >
+                            Today
+                        </TeaButton>
+                        <span
+                            className={`week__arrow ${drag?.target === 'week:1' ? 'week__arrow--over' : ''}`}
+                            data-drop='week:1'
+                        >
+                            <TeaButton
+                                size='small'
+                                disabled={monday >= addDays(mondayOf(now), MAX_WEEKS_AHEAD * 7)}
+                                onClick={() => setMonday(addDays(monday, 7))}
+                            >
+                                <Icon name='chevron-right' />
+                            </TeaButton>
+                        </span>
                     </div>
                 </div>
             </header>

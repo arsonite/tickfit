@@ -58,7 +58,17 @@ interface iTrainBarProps {
  * the rest starts by itself after a round and the next set is shown. When an exercise is done the lifter picks the
  * next one in the list, the rest can still be started by hand.
  */
-export const TrainBar = ({ autoStart, data, defaultRest, describe, next, onFinish, open, session, vibrate }: iTrainBarProps) => {
+export const TrainBar = ({
+    autoStart,
+    data,
+    defaultRest,
+    describe,
+    next,
+    onFinish,
+    open,
+    session,
+    vibrate,
+}: iTrainBarProps) => {
     const now = useNow(true);
     const workout = data.workoutById.get(session.workout);
     const target = (workout?.rest_seconds || defaultRest) * 1000;
@@ -94,7 +104,12 @@ export const TrainBar = ({ autoStart, data, defaultRest, describe, next, onFinis
         }
         if (!due) {
             seen.current = resting.id;
-        } else if (seen.current === resting.id && started.current !== resting.id && nextId && elapsed - target < AUTO_START_WINDOW_MS) {
+        } else if (
+            seen.current === resting.id &&
+            started.current !== resting.id &&
+            nextId &&
+            elapsed - target < AUTO_START_WINDOW_MS
+        ) {
             started.current = resting.id;
             data.training.startSet(nextId);
         }
@@ -107,13 +122,21 @@ export const TrainBar = ({ autoStart, data, defaultRest, describe, next, onFinis
     );
 
     return (
-        <div className={`trainbar ${running ? 'trainbar--set' : resting ? `trainbar--rest ${over ? 'trainbar--over' : ''}` : ''}`}>
+        <div
+            className={`trainbar ${running ? 'trainbar--set' : resting ? `trainbar--rest ${over ? 'trainbar--over' : ''}` : ''}`}
+        >
             <div className='trainbar__top'>
                 <span className='trainbar__clock' title='Training time'>
                     {clock(now - (session.started_at ?? now))}
                 </span>
                 <span className='trainbar__what'>
-                    {running ? describe(running) : next ? `Next: ${describe(next)}` : open ? 'Pick the next exercise below' : 'Nothing open anymore, finish the workout'}
+                    {running
+                        ? describe(running)
+                        : next
+                          ? `Next: ${describe(next)}`
+                          : open
+                            ? 'Pick the next exercise below'
+                            : 'Nothing open anymore, finish the workout'}
                 </span>
             </div>
 
@@ -124,7 +147,10 @@ export const TrainBar = ({ autoStart, data, defaultRest, describe, next, onFinis
                             <small>Set</small>
                             {clock(now - (running.started_at ?? now))}
                         </div>
-                        <button className='trainbar__go' onClick={() => !justNow(running.started_at) && onFinish(running)}>
+                        <button
+                            className='trainbar__go'
+                            onClick={() => !justNow(running.started_at) && onFinish(running)}
+                        >
                             Finish set <Icon name='check' />
                         </button>
                     </>
@@ -135,7 +161,10 @@ export const TrainBar = ({ autoStart, data, defaultRest, describe, next, onFinis
                             {over ? `+${clock(elapsed - target)}` : clock(target - elapsed)}
                         </div>
                         {startNext ?? (
-                            <button className='trainbar__go trainbar__go--quiet' onClick={() => data.training.endRest(session.id)}>
+                            <button
+                                className='trainbar__go trainbar__go--quiet'
+                                onClick={() => data.training.endRest(session.id)}
+                            >
                                 Skip rest
                             </button>
                         )}
@@ -143,12 +172,19 @@ export const TrainBar = ({ autoStart, data, defaultRest, describe, next, onFinis
                 ) : (
                     <>
                         {canRest && (
-                            <button className='trainbar__go trainbar__go--quiet' onClick={() => lastDone && data.training.startRest(lastDone.id)}>
+                            <button
+                                className='trainbar__go trainbar__go--quiet'
+                                onClick={() => lastDone && data.training.startRest(lastDone.id)}
+                            >
                                 Start rest · {clock(target)}
                             </button>
                         )}
                         {startNext}
-                        {!canRest && !next && restDone && <span className='muted'>Rested {clock((lastDone?.rest_ended_at ?? 0) - (lastDone?.rest_started_at ?? 0))}</span>}
+                        {!canRest && !next && restDone && (
+                            <span className='muted'>
+                                Rested {clock((lastDone?.rest_ended_at ?? 0) - (lastDone?.rest_started_at ?? 0))}
+                            </span>
+                        )}
                     </>
                 )}
             </div>

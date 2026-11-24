@@ -102,12 +102,28 @@ const DISTANCE_OPTIONS = [
     { label: 'Off', value: 'off' },
 ];
 
-const BLANK: tDraft = { category: '', distance_unit: 'km', distanced: false, id: '', image: '', name: '', notes: '', time_unit: 'minutes', timed: false, unit: 'reps', weighted: true };
+const BLANK: tDraft = {
+    category: '',
+    distance_unit: 'km',
+    distanced: false,
+    id: '',
+    image: '',
+    name: '',
+    notes: '',
+    time_unit: 'minutes',
+    timed: false,
+    unit: 'reps',
+    weighted: true,
+};
 const NO_BULK: iBulk = { category: '', distance: 'keep', reps: 'keep', time: 'keep', weighted: 'keep' };
 
 /** What an exercise counts, in a few words */
 const countsOf = (exercise: iExercise): string =>
-    [exercise.category, ...COUNTS.filter((count) => hasCount(exercise, count.value)).map((count) => count.short), exercise.weighted ? 'kg' : '']
+    [
+        exercise.category,
+        ...COUNTS.filter((count) => hasCount(exercise, count.value)).map((count) => count.short),
+        exercise.weighted ? 'kg' : '',
+    ]
         .filter(Boolean)
         .join(' · ');
 
@@ -123,7 +139,13 @@ export const ExercisesView = ({ data }: iExercisesViewProps) => {
     const [bulk, setBulk] = useState<iBulk | null>(null);
     const file = useRef<HTMLInputElement>(null);
 
-    const types = useMemo(() => [...new Set(data.exercises.rows.map((exercise) => exercise.category?.trim() ?? '').filter(Boolean))].sort((a, b) => a.localeCompare(b)), [data.exercises.rows]);
+    const types = useMemo(
+        () =>
+            [...new Set(data.exercises.rows.map((exercise) => exercise.category?.trim() ?? '').filter(Boolean))].sort(
+                (a, b) => a.localeCompare(b),
+            ),
+        [data.exercises.rows],
+    );
 
     const matching = data.exercises.rows
         .filter((exercise) => exercise.name.toLowerCase().includes(query.trim().toLowerCase()))
@@ -141,7 +163,8 @@ export const ExercisesView = ({ data }: iExercisesViewProps) => {
         setSelected([]);
     };
 
-    const toggle = (id: string) => setSelected((list) => (list.includes(id) ? list.filter((other) => other !== id) : [...list, id]));
+    const toggle = (id: string) =>
+        setSelected((list) => (list.includes(id) ? list.filter((other) => other !== id) : [...list, id]));
 
     const open = (exercise: iExercise) => (selecting ? toggle(exercise.id) : setDraft({ ...BLANK, ...exercise }));
 
@@ -200,21 +223,27 @@ export const ExercisesView = ({ data }: iExercisesViewProps) => {
             return;
         }
         const flag = (value: string, current?: boolean) => (value === 'keep' ? current : value === 'on');
-        chosen.forEach((exercise) =>
-            {
-                let counted: tCounted = exercise;
-                if (bulk.reps !== 'keep') {
-                    counted = withCount(counted, 'reps', bulk.reps === 'on');
-                }
-                if (bulk.time !== 'keep') {
-                    counted = withCount(counted, bulk.time === 'seconds' ? 'seconds' : 'minutes', bulk.time !== 'off');
-                }
-                if (bulk.distance !== 'keep') {
-                    counted = withCount(counted, bulk.distance === 'km' ? 'km' : 'meters', bulk.distance !== 'off');
-                }
-                data.exercises.patch(exercise.id, { distance_unit: counted.distance_unit, distanced: counted.distanced, time_unit: counted.time_unit, timed: counted.timed, unit: counted.unit, category: bulk.category.trim() || exercise.category, weighted: flag(bulk.weighted, exercise.weighted) });
-            },
-        );
+        chosen.forEach((exercise) => {
+            let counted: tCounted = exercise;
+            if (bulk.reps !== 'keep') {
+                counted = withCount(counted, 'reps', bulk.reps === 'on');
+            }
+            if (bulk.time !== 'keep') {
+                counted = withCount(counted, bulk.time === 'seconds' ? 'seconds' : 'minutes', bulk.time !== 'off');
+            }
+            if (bulk.distance !== 'keep') {
+                counted = withCount(counted, bulk.distance === 'km' ? 'km' : 'meters', bulk.distance !== 'off');
+            }
+            data.exercises.patch(exercise.id, {
+                distance_unit: counted.distance_unit,
+                distanced: counted.distanced,
+                time_unit: counted.time_unit,
+                timed: counted.timed,
+                unit: counted.unit,
+                category: bulk.category.trim() || exercise.category,
+                weighted: flag(bulk.weighted, exercise.weighted),
+            });
+        });
         data.success(`${chosen.length} exercise${chosen.length === 1 ? '' : 's'} changed`);
         setBulk(null);
         stopSelecting();
@@ -232,8 +261,16 @@ export const ExercisesView = ({ data }: iExercisesViewProps) => {
     };
 
     const card = (exercise: iExercise) => (
-        <button key={exercise.id} className={`card ${exercise.archived ? 'card--archived' : ''} ${selected.includes(exercise.id) ? 'card--selected' : ''}`} onClick={() => open(exercise)}>
-            {selecting && <span className={`card__check ${selected.includes(exercise.id) ? 'card__check--on' : ''}`}>{selected.includes(exercise.id) && <Icon name='check' />}</span>}
+        <button
+            key={exercise.id}
+            className={`card ${exercise.archived ? 'card--archived' : ''} ${selected.includes(exercise.id) ? 'card--selected' : ''}`}
+            onClick={() => open(exercise)}
+        >
+            {selecting && (
+                <span className={`card__check ${selected.includes(exercise.id) ? 'card__check--on' : ''}`}>
+                    {selected.includes(exercise.id) && <Icon name='check' />}
+                </span>
+            )}
             <Thumb exercise={exercise} size='large' />
             <strong>{exercise.name}</strong>
             <span className='muted card__counts'>{countsOf(exercise)}</span>
@@ -244,31 +281,74 @@ export const ExercisesView = ({ data }: iExercisesViewProps) => {
         <div className='page'>
             <header className='page__head page__head--wrap'>
                 <h1>Exercises</h1>
-                <input className='search' type='search' placeholder='Search' value={query} onChange={(event) => setQuery(event.target.value)} />
+                <input
+                    className='search'
+                    type='search'
+                    placeholder='Search'
+                    value={query}
+                    onChange={(event) => setQuery(event.target.value)}
+                />
                 <TeaSelect
                     aria-label='Type'
                     value={type}
-                    options={[{ label: 'All types', value: '' }, ...types.map((name) => ({ label: name, value: name })), { label: 'No type', value: '-' }]}
+                    options={[
+                        { label: 'All types', value: '' },
+                        ...types.map((name) => ({ label: name, value: name })),
+                        { label: 'No type', value: '-' },
+                    ]}
                     onChange={(event) => setType(event.target.value)}
                 />
-                <TeaButton onClick={() => (selecting ? stopSelecting() : setSelecting(true))}>{selecting ? 'Done' : 'Select'}</TeaButton>
-                <TeaButton theme='filled' onClick={() => setDraft(BLANK)}>New exercise</TeaButton>
+                <TeaButton onClick={() => (selecting ? stopSelecting() : setSelecting(true))}>
+                    {selecting ? 'Done' : 'Select'}
+                </TeaButton>
+                <TeaButton theme='filled' onClick={() => setDraft(BLANK)}>
+                    New exercise
+                </TeaButton>
             </header>
 
             {selecting && (
                 <div className='bulkbar'>
                     <strong>{selected.length} selected</strong>
-                    <TeaButton size='small' onClick={() => setSelected(visible.map((exercise) => exercise.id))}>All shown</TeaButton>
-                    <TeaButton size='small' disabled={!selected.length} onClick={() => setSelected([])}>None</TeaButton>
+                    <TeaButton size='small' onClick={() => setSelected(visible.map((exercise) => exercise.id))}>
+                        All shown
+                    </TeaButton>
+                    <TeaButton size='small' disabled={!selected.length} onClick={() => setSelected([])}>
+                        None
+                    </TeaButton>
                     <span className='grow' />
-                    <TeaButton size='small' disabled={!selected.length} onClick={() => setBulk(NO_BULK)}>Edit</TeaButton>
-                    <TeaButton size='small' disabled={!chosen.some((exercise) => !exercise.archived)} onClick={() => archiveMany(true)}>Archive</TeaButton>
-                    <TeaButton size='small' disabled={!chosen.some((exercise) => exercise.archived)} onClick={() => archiveMany(false)}>Unarchive</TeaButton>
-                    <TeaButton size='small' theme='danger' disabled={!selected.length} onClick={() => void removeMany(chosen)}>Delete</TeaButton>
+                    <TeaButton size='small' disabled={!selected.length} onClick={() => setBulk(NO_BULK)}>
+                        Edit
+                    </TeaButton>
+                    <TeaButton
+                        size='small'
+                        disabled={!chosen.some((exercise) => !exercise.archived)}
+                        onClick={() => archiveMany(true)}
+                    >
+                        Archive
+                    </TeaButton>
+                    <TeaButton
+                        size='small'
+                        disabled={!chosen.some((exercise) => exercise.archived)}
+                        onClick={() => archiveMany(false)}
+                    >
+                        Unarchive
+                    </TeaButton>
+                    <TeaButton
+                        size='small'
+                        theme='danger'
+                        disabled={!selected.length}
+                        onClick={() => void removeMany(chosen)}
+                    >
+                        Delete
+                    </TeaButton>
                 </div>
             )}
 
-            {!shown.length && <div className='empty'>{data.exercises.rows.length - archivedCount ? 'Nothing found.' : 'No exercises yet.'}</div>}
+            {!shown.length && (
+                <div className='empty'>
+                    {data.exercises.rows.length - archivedCount ? 'Nothing found.' : 'No exercises yet.'}
+                </div>
+            )}
 
             <div className='cards'>{shown.map(card)}</div>
 
@@ -297,28 +377,67 @@ export const ExercisesView = ({ data }: iExercisesViewProps) => {
                 title={draft?.id ? 'Exercise' : 'New exercise'}
                 footer={
                     <div className='modal-actions'>
-                        {draft?.id && <TeaButton theme='danger' onClick={() => void removeMany([draft as iExercise])}>Delete</TeaButton>}
-                        {draft?.id && <TeaButton onClick={() => archive(!away)}>{away ? 'Unarchive' : 'Archive'}</TeaButton>}
+                        {draft?.id && (
+                            <TeaButton theme='danger' onClick={() => void removeMany([draft as iExercise])}>
+                                Delete
+                            </TeaButton>
+                        )}
+                        {draft?.id && (
+                            <TeaButton onClick={() => archive(!away)}>{away ? 'Unarchive' : 'Archive'}</TeaButton>
+                        )}
                         <span className='grow' />
                         <TeaButton onClick={() => setDraft(null)}>Cancel</TeaButton>
-                        <TeaButton theme='filled' disabled={!draft?.name.trim() || away} onClick={() => void save()}>Save</TeaButton>
+                        <TeaButton theme='filled' disabled={!draft?.name.trim() || away} onClick={() => void save()}>
+                            Save
+                        </TeaButton>
                     </div>
                 }
                 onClose={() => setDraft(null)}
             >
                 {draft && (
                     <fieldset className='form editor__body' disabled={away}>
-                        {away && <p className='editor__archived'>Archived: kept for what was logged with it and cannot be changed until it is unarchived. Workouts that use it keep it.</p>}
+                        {away && (
+                            <p className='editor__archived'>
+                                Archived: kept for what was logged with it and cannot be changed until it is unarchived.
+                                Workouts that use it keep it.
+                            </p>
+                        )}
                         <div className='form__picture'>
                             <Thumb exercise={draft as iExercise} size='large' />
                             <div className='form__picture-actions'>
-                                <TeaButton size='small' onClick={() => file.current?.click()}>{draft.image ? 'Change picture' : 'Add picture'}</TeaButton>
-                                {draft.image && <TeaButton size='small' onClick={() => setDraft({ ...draft, image: '' })}>Remove</TeaButton>}
+                                <TeaButton size='small' onClick={() => file.current?.click()}>
+                                    {draft.image ? 'Change picture' : 'Add picture'}
+                                </TeaButton>
+                                {draft.image && (
+                                    <TeaButton size='small' onClick={() => setDraft({ ...draft, image: '' })}>
+                                        Remove
+                                    </TeaButton>
+                                )}
                             </div>
-                            <input ref={file} hidden type='file' accept='image/*' onChange={(event) => { void pickImage(event.target.files); event.target.value = ''; }} />
+                            <input
+                                ref={file}
+                                hidden
+                                type='file'
+                                accept='image/*'
+                                onChange={(event) => {
+                                    void pickImage(event.target.files);
+                                    event.target.value = '';
+                                }}
+                            />
                         </div>
-                        <TeaInput label='Name' value={draft.name} autoFocus onChange={(event) => setDraft({ ...draft, name: event.target.value })} />
-                        <TeaInput label='Type' list='exercise-types' placeholder='e.g. pull, push, legs, cardio' value={draft.category ?? ''} onChange={(event) => setDraft({ ...draft, category: event.target.value })} />
+                        <TeaInput
+                            label='Name'
+                            value={draft.name}
+                            autoFocus
+                            onChange={(event) => setDraft({ ...draft, name: event.target.value })}
+                        />
+                        <TeaInput
+                            label='Type'
+                            list='exercise-types'
+                            placeholder='e.g. pull, push, legs, cardio'
+                            value={draft.category ?? ''}
+                            onChange={(event) => setDraft({ ...draft, category: event.target.value })}
+                        />
                         <div className='form__group'>
                             <span className='form__label'>Counted in</span>
                             <div className='chips'>
@@ -334,12 +453,25 @@ export const ExercisesView = ({ data }: iExercisesViewProps) => {
                                     </button>
                                 ))}
                             </div>
-                            <p className='muted form__hint'>Minutes or seconds, meters or kilometers, not both. The time is filled in when a set is finished.</p>
+                            <p className='muted form__hint'>
+                                Minutes or seconds, meters or kilometers, not both. The time is filled in when a set is
+                                finished.
+                            </p>
                         </div>
                         <div className='form__checks'>
-                            <TeaCheckbox label='Weight (kg)' checked={!!draft.weighted} onChange={(weighted) => setDraft({ ...draft, weighted })} />
+                            <TeaCheckbox
+                                label='Weight (kg)'
+                                checked={!!draft.weighted}
+                                onChange={(weighted) => setDraft({ ...draft, weighted })}
+                            />
                         </div>
-                        <TeaTextarea label='Notes' rows={3} placeholder='Seat height, grip, cues …' value={draft.notes ?? ''} onChange={(event) => setDraft({ ...draft, notes: event.target.value })} />
+                        <TeaTextarea
+                            label='Notes'
+                            rows={3}
+                            placeholder='Seat height, grip, cues …'
+                            value={draft.notes ?? ''}
+                            onChange={(event) => setDraft({ ...draft, notes: event.target.value })}
+                        />
                     </fieldset>
                 )}
             </TeaModal>
@@ -351,18 +483,46 @@ export const ExercisesView = ({ data }: iExercisesViewProps) => {
                     <div className='modal-actions'>
                         <span className='grow' />
                         <TeaButton onClick={() => setBulk(null)}>Cancel</TeaButton>
-                        <TeaButton theme='filled' onClick={applyBulk}>Apply</TeaButton>
+                        <TeaButton theme='filled' onClick={applyBulk}>
+                            Apply
+                        </TeaButton>
                     </div>
                 }
                 onClose={() => setBulk(null)}
             >
                 {bulk && (
                     <div className='form'>
-                        <TeaInput label='Type' list='exercise-types' placeholder='Empty keeps the type' value={bulk.category} onChange={(event) => setBulk({ ...bulk, category: event.target.value })} />
-                        <TeaSelect label='Reps' value={bulk.reps} options={SWITCH} onChange={(event) => setBulk({ ...bulk, reps: event.target.value })} />
-                        <TeaSelect label='Time' value={bulk.time} options={TIME_OPTIONS} onChange={(event) => setBulk({ ...bulk, time: event.target.value })} />
-                        <TeaSelect label='Distance' value={bulk.distance} options={DISTANCE_OPTIONS} onChange={(event) => setBulk({ ...bulk, distance: event.target.value })} />
-                        <TeaSelect label='Weight (kg)' value={bulk.weighted} options={SWITCH} onChange={(event) => setBulk({ ...bulk, weighted: event.target.value })} />
+                        <TeaInput
+                            label='Type'
+                            list='exercise-types'
+                            placeholder='Empty keeps the type'
+                            value={bulk.category}
+                            onChange={(event) => setBulk({ ...bulk, category: event.target.value })}
+                        />
+                        <TeaSelect
+                            label='Reps'
+                            value={bulk.reps}
+                            options={SWITCH}
+                            onChange={(event) => setBulk({ ...bulk, reps: event.target.value })}
+                        />
+                        <TeaSelect
+                            label='Time'
+                            value={bulk.time}
+                            options={TIME_OPTIONS}
+                            onChange={(event) => setBulk({ ...bulk, time: event.target.value })}
+                        />
+                        <TeaSelect
+                            label='Distance'
+                            value={bulk.distance}
+                            options={DISTANCE_OPTIONS}
+                            onChange={(event) => setBulk({ ...bulk, distance: event.target.value })}
+                        />
+                        <TeaSelect
+                            label='Weight (kg)'
+                            value={bulk.weighted}
+                            options={SWITCH}
+                            onChange={(event) => setBulk({ ...bulk, weighted: event.target.value })}
+                        />
                     </div>
                 )}
             </TeaModal>
