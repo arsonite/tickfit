@@ -19,7 +19,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 // TeaType
-import { TeaConfirmProvider, TeaSidebar, TeaSyncStatus, TeaToastContainer, useTeaToast } from '@teatype/components';
+import { TeaButton, TeaConfirmProvider, TeaSidebar, TeaSyncStatus, TeaToastContainer, useTeaToast } from '@teatype/components';
 import useIsMobile from '@teatype/hooks/useIsMobile';
 import { SettingsIcon } from '@teatype/icons';
 import { edgeSwipe } from '@teatype/toolkit/gestures';
@@ -126,18 +126,17 @@ const Tickfit = ({ stored }: { stored: tStored }) => {
                 footer={
                     <>
                         <TeaSyncStatus status={data.sync.status} unsavedCount={data.sync.unsavedCount} />
-                        <button className={`tea-sidebar-footer-btn ${settingsOpen ? 'tea-sidebar-footer-btn--active' : ''}`} onClick={openSettings}>
-                            <SettingsIcon />
-                            <span>Settings</span>
-                        </button>
+                        <TeaButton variant='borderless' fullWidth align='start' active={settingsOpen} icon={<SettingsIcon />} onClick={openSettings}>
+                            Settings
+                        </TeaButton>
                     </>
                 }
                 rail={
                     <>
                         <TeaSyncStatus compact status={data.sync.status} unsavedCount={data.sync.unsavedCount} />
-                        <button className={`tea-rail__btn ${settingsOpen ? 'tea-rail__btn--active' : ''}`} title='Settings' onClick={openSettings}>
+                        <TeaButton variant='borderless' iconOnly active={settingsOpen} title='Settings' onClick={openSettings}>
                             <SettingsIcon />
-                        </button>
+                        </TeaButton>
                     </>
                 }
                 onToggle={toggle}
